@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.idea/
+.run/
+.DS_Store
+output/*
+!output/.gitkeep
+input/*
+!input/.gitkeep
+.env
+*.user
