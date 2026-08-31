@@ -1,13 +1,14 @@
-using Vocabula.Spike;
+using Vocabula.Core;
+using Vocabula.Core.Models;
 
-namespace Vocabula.Spike.Tests;
+namespace Vocabula.Core.Tests;
 
-public sealed class SpikeOutputJsonTests
+public sealed class NotebookProcessingResultJsonTests
 {
     [Fact]
     public void Serialize_ProducesReadableCamelCaseJson()
     {
-        var output = new SpikeOutput(
+        var result = new NotebookProcessingResult(
             new NotebookKnowledge(
                 "Swedish",
                 "Greetings",
@@ -21,7 +22,7 @@ public sealed class SpikeOutputJsonTests
                 ["present tense"],
                 []));
 
-        var json = SpikeOutputJson.Serialize(output);
+        var json = NotebookProcessingResultJson.Serialize(result);
 
         Assert.Contains("\"knowledge\"", json);
         Assert.Contains("\"targetLanguage\": \"Swedish\"", json);

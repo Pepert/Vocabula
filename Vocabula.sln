@@ -1,0 +1,48 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32526.115
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Core", "src\Vocabula.Core\Vocabula.Core.csproj", "{E1C08053-89D1-4D24-8396-14631467899A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Cli", "src\Vocabula.Cli\Vocabula.Cli.csproj", "{D2C08053-89D1-4D24-8396-14631467899B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Api", "src\Vocabula.Api\Vocabula.Api.csproj", "{E3C08053-89D1-4D24-8396-14631467899C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Core.Tests", "tests\Vocabula.Core.Tests\Vocabula.Core.Tests.csproj", "{F1C08053-89D1-4D24-8396-14631467899D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Api.Tests", "tests\Vocabula.Api.Tests\Vocabula.Api.Tests.csproj", "{G1C08053-89D1-4D24-8396-14631467899E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AnyCPU = Debug|AnyCPU
+		Release|AnyCPU = Release|AnyCPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E1C08053-89D1-4D24-8396-14631467899A}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{E1C08053-89D1-4D24-8396-14631467899A}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{E1C08053-89D1-4D24-8396-14631467899A}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{E1C08053-89D1-4D24-8396-14631467899A}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{D2C08053-89D1-4D24-8396-14631467899B}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{D2C08053-89D1-4D24-8396-14631467899B}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{D2C08053-89D1-4D24-8396-14631467899B}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{D2C08053-89D1-4D24-8396-14631467899B}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{F1C08053-89D1-4D24-8396-14631467899D}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{F1C08053-89D1-4D24-8396-14631467899D}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{F1C08053-89D1-4D24-8396-14631467899D}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{F1C08053-89D1-4D24-8396-14631467899D}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{G1C08053-89D1-4D24-8396-14631467899E}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{G1C08053-89D1-4D24-8396-14631467899E}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{G1C08053-89D1-4D24-8396-14631467899E}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{G1C08053-89D1-4D24-8396-14631467899E}.Release|AnyCPU.Build.0 = Release|AnyCPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A3C08053-89D1-4D24-8396-14631467899F}
+	EndGlobalSection
+EndGlobal

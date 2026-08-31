@@ -1,7 +1,7 @@
 using System.Text;
-using Vocabula.Spike;
+using Vocabula.Core;
 
-namespace Vocabula.Spike.Tests;
+namespace Vocabula.Core.Tests;
 
 public sealed class LocalImageTests : IDisposable
 {

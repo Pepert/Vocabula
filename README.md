@@ -2,46 +2,55 @@
 
 Storytelling application generating personalized reading content for language learners.
 
-## Current AI spike
+## ASP.NET Core API
 
-A deliberately small .NET console application that:
+A local ASP.NET Core Web API that provides:
 
-1. reads one notebook photo from a hardcoded local path;
-2. sends it to Mistral vision with a strict JSON schema;
-3. extracts vocabulary and grammar without silently guessing uncertain text;
-4. sends the structured extraction to Mistral again;
-5. generates a short story and reports potentially unfamiliar language;
-6. prints and saves the complete result as readable JSON.
+- `POST /api/knowledge/extract` - Extract structured vocabulary and grammar from a notebook image
+- `POST /api/stories/generate` - Generate a story from extracted knowledge
+- `GET /health` - Health check endpoint
 
-## Open in Rider
+### Open in Rider
 
-Open `Vocabula.slnx`. If Rider does not detect the user-local SDK automatically, configure the .NET CLI executable as:
+Open `Vocabula.sln`. If Rider does not detect the SDK automatically, configure the .NET CLI executable as:
 
 ```text
 /Users/leo/.dotnet/dotnet
 ```
 
-The installed SDK is under `/Users/leo/.dotnet` because the Homebrew package required administrator access.
+### Run the API
 
-## One-time setup
-
-1. Copy a notebook photo to:
-
-   ```text
-   /Users/leo/Development/Projects/Vocabula/input/notebook.jpg
-   ```
-
-   JPG, PNG, and WebP are supported. If the extension differs, edit `imagePath` in `src/Vocabula.Spike/Program.cs`.
-
-2. In Rider, create or edit the run configuration for `Vocabula.Spike` and add this environment variable:
+1. In Rider, create or edit the run configuration for `Vocabula.Api` and add this environment variable:
 
    ```text
    MISTRAL_API_KEY=<your key>
    ```
 
-   Do not put the real key in `Program.cs` or commit it.
+   Do not put the real key in source code.
 
-3. Run `Vocabula.Spike` from Rider.
+2. Run `Vocabula.Api` from Rider.
+
+The API starts on `http://localhost:5000` with Swagger UI available at `http://localhost:5000/swagger`.
+
+### Command-line usage
+
+Alternatively, use the CLI application `Vocabula.Cli`:
+
+1. Copy a notebook photo to:
+
+   ```text
+   /Users/leo/Development/Projects/Vocabula/input/notebook.jpeg
+   ```
+
+   JPG, PNG, and WebP are supported.
+
+2. In Rider, create or edit the run configuration for `Vocabula.Cli` and add this environment variable:
+
+   ```text
+   MISTRAL_API_KEY=<your key>
+   ```
+
+3. Run `Vocabula.Cli` from Rider.
 
 The result is printed and written to:
 
@@ -49,23 +58,8 @@ The result is printed and written to:
 /Users/leo/Development/Projects/Vocabula/output/result.json
 ```
 
-## Hardcoded spike configuration
+## Architecture
 
-`src/Vocabula.Spike/Program.cs` intentionally hardcodes:
-
-- input image path;
-- output JSON path;
-- vision model;
-- story model;
-- Mistral API base URL.
-
-Only the secret API key remains outside source control.
-
-## Command-line verification
-
-```bash
-/Users/leo/.dotnet/dotnet test Vocabula.slnx
-/Users/leo/.dotnet/dotnet run --project src/Vocabula.Spike/Vocabula.Spike.csproj
-```
-
-The live run makes two model requests: one extraction request and one story-generation request.
+- `Vocabula.Core` - Domain models and AI services (no ASP.NET dependencies)
+- `Vocabula.Cli` - Console application
+- `Vocabula.Api` - ASP.NET Core Web API
