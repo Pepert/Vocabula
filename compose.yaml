@@ -1,0 +1,16 @@
+services:
+  api:
+    build:
+      context: .
+      target: final
+
+    image: vocabula-api:local
+
+    env_file:
+      - .env
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+
+    ports:
+      - "5001:8080"

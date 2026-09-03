@@ -43,11 +43,13 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Vocabula API v1");
 });
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseRouting();
 app.MapControllers();
 
-Console.WriteLine("Vocabula API started at: http://localhost:5000");
-Console.WriteLine("Swagger UI available at: http://localhost:5000/swagger");
+app.Logger.LogInformation("Swagger UI is available at /swagger");
 
 app.Run();

@@ -1,0 +1,14 @@
+.git
+.gitignore
+.idea
+.run
+
+**/bin
+**/obj
+**/.DS_Store
+
+.env
+input
+output
+
+README.md

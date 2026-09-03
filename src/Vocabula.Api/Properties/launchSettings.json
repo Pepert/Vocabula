@@ -7,8 +7,7 @@
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5001",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "MISTRAL_API_KEY": "TO_BE_REPLACED"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
   }
