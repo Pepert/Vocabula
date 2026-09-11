@@ -1,7 +1,10 @@
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Vocabula.Core.AI;
 using Vocabula.Core.Models;
+using Vocabula.Infrastructure.Persistence;
+using Domain = Vocabula.Core.Domain;
 
 namespace Vocabula.Api.Controllers;
 
@@ -9,11 +12,16 @@ namespace Vocabula.Api.Controllers;
 [Route("api/stories")]
 public sealed class StoriesController : ControllerBase
 {
-    private readonly IStoryGenerator _generator;
+    private static readonly Guid TestUserId = Guid.Parse("a7fa0f0d-30bc-4aaf-822d-6f7c6c9ebbe7");
+    private const string TestLanguageCode = "sv";
 
-    public StoriesController(IStoryGenerator generator)
+    private readonly IStoryGenerator _generator;
+    private readonly VocabulaDbContext _dbContext;
+
+    public StoriesController(IStoryGenerator generator, VocabulaDbContext dbContext)
     {
         _generator = generator;
+        _dbContext = dbContext;
     }
 
     [HttpPost("generate")]
@@ -33,6 +41,60 @@ public sealed class StoriesController : ControllerBase
         try
         {
             var story = await _generator.GenerateAsync(knowledge, cancellationToken);
+
+            // Find learning profile for test user
+            var learningProfile = await _dbContext.LearningProfiles
+                .FirstOrDefaultAsync(lp => lp.UserId == TestUserId && lp.LanguageCode == TestLanguageCode, cancellationToken);
+
+            if (learningProfile == null)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Learning profile not found",
+                    Detail = "No learning profile found for test user with language code 'sv'. Extract knowledge first."
+                });
+            }
+
+            // Find or create story
+            var storyEntity = await _dbContext.Stories
+                .FirstOrDefaultAsync(s => s.LearningProfileId == learningProfile.Id, cancellationToken);
+
+            if (storyEntity == null)
+            {
+                storyEntity = new Domain.Story
+                {
+                    Id = Guid.NewGuid(),
+                    LearningProfileId = learningProfile.Id,
+                    Title = story.Title,
+                    CurrentSummary = null
+                };
+                _dbContext.Stories.Add(storyEntity);
+            }
+
+            // Calculate next chapter number
+            int nextChapterNumber = await _dbContext.StoryChapters
+                .Where(sc => sc.StoryId == storyEntity.Id)
+                .Select(sc => sc.ChapterNumber)
+                .DefaultIfEmpty(0)
+                .MaxAsync(cancellationToken) + 1;
+
+            // Create chapter
+            var chapter = new Domain.StoryChapter
+            {
+                Id = Guid.NewGuid(),
+                StoryId = storyEntity.Id,
+                ChapterNumber = nextChapterNumber,
+                Content = story.Story,
+                ResultingSummary = story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _dbContext.StoryChapters.Add(chapter);
+
+            // Update story current summary
+            storyEntity.CurrentSummary = story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story;
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
             return Ok(story);
         }
         catch (HttpRequestException ex) when (ex.StatusCode != null && IsTransientError(ex.StatusCode.Value))

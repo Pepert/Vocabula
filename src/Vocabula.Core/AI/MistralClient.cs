@@ -22,6 +22,7 @@ public sealed class MistralClient : IMistralClient
     public async Task<T> SendAsync<T>(
         object request,
         JsonSerializerOptions jsonOptions,
+        string endpointPath = "v1/chat/completions",
         CancellationToken cancellationToken = default)
     {
         const int maxAttempts = 5;
@@ -39,7 +40,7 @@ public sealed class MistralClient : IMistralClient
             try
             {
                 response = await _httpClient.PostAsJsonAsync(
-                    "v1/chat/completions",
+                    endpointPath,
                     request,
                     jsonOptions,
                     cancellationToken);

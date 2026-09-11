@@ -10,7 +10,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Api", "src\Vocabul
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Core.Tests", "tests\Vocabula.Core.Tests\Vocabula.Core.Tests.csproj", "{F1C08053-89D1-4D24-8396-14631467899D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Api.Tests", "tests\Vocabula.Api.Tests\Vocabula.Api.Tests.csproj", "{G1C08053-89D1-4D24-8396-14631467899E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Api.Tests", "tests\Vocabula.Api.Tests\Vocabula.Api.Tests.csproj", "{00000000-0000-0000-0000-000000000000}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vocabula.Infrastructure", "src\Vocabula.Infrastructure\Vocabula.Infrastructure.csproj", "{680E435B-3FA1-4929-90C1-32DC7FA10CC7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vocabula.Infrastructure.Tests", "tests\Vocabula.Infrastructure.Tests\Vocabula.Infrastructure.Tests.csproj", "{11C08053-89D1-4D24-8396-14631467899I}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,18 +30,26 @@ Global
 		{D2C08053-89D1-4D24-8396-14631467899B}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
 		{D2C08053-89D1-4D24-8396-14631467899B}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
 		{D2C08053-89D1-4D24-8396-14631467899B}.Release|AnyCPU.Build.0 = Release|AnyCPU
-		{E3C08053-89D1-4D24-8396-14631467899C}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
-		{E3C08053-89D1-4D24-8396-14631467899C}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
-		{E3C08053-89D1-4D24-8396-14631467899C}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
-		{E3C08053-89D1-4D24-8396-14631467899C}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{E3C08053-89D1-4D24-8396-14631467899C}.Release|AnyCPU.Build.0 = Release|Any CPU
 		{F1C08053-89D1-4D24-8396-14631467899D}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
 		{F1C08053-89D1-4D24-8396-14631467899D}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
 		{F1C08053-89D1-4D24-8396-14631467899D}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
 		{F1C08053-89D1-4D24-8396-14631467899D}.Release|AnyCPU.Build.0 = Release|AnyCPU
-		{G1C08053-89D1-4D24-8396-14631467899E}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
-		{G1C08053-89D1-4D24-8396-14631467899E}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
-		{G1C08053-89D1-4D24-8396-14631467899E}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
-		{G1C08053-89D1-4D24-8396-14631467899E}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{680E435B-3FA1-4929-90C1-32DC7FA10CC7}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{680E435B-3FA1-4929-90C1-32DC7FA10CC7}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{680E435B-3FA1-4929-90C1-32DC7FA10CC7}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{680E435B-3FA1-4929-90C1-32DC7FA10CC7}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{00000000-0000-0000-0000-000000000000}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{00000000-0000-0000-0000-000000000000}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{00000000-0000-0000-0000-000000000000}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{00000000-0000-0000-0000-000000000000}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{11C08053-89D1-4D24-8396-14631467899I}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{11C08053-89D1-4D24-8396-14631467899I}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{11C08053-89D1-4D24-8396-14631467899I}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{11C08053-89D1-4D24-8396-14631467899I}.Release|AnyCPU.Build.0 = Release|AnyCPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
