@@ -72,11 +72,11 @@ public sealed class StoriesController : ControllerBase
             }
 
             // Calculate next chapter number
-            int nextChapterNumber = await _dbContext.StoryChapters
+            var maxChapter = await _dbContext.StoryChapters
                 .Where(sc => sc.StoryId == storyEntity.Id)
                 .Select(sc => sc.ChapterNumber)
-                .DefaultIfEmpty(0)
-                .MaxAsync(cancellationToken) + 1;
+                .ToListAsync(cancellationToken);
+            int nextChapterNumber = (maxChapter.Count == 0 ? 0 : maxChapter.Max()) + 1;
 
             // Create chapter
             var chapter = new Domain.StoryChapter
