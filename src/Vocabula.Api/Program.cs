@@ -1,6 +1,8 @@
-using Vocabula.Api.Swagger;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Vocabula.Core.AI;
 using Vocabula.Core.Models;
+using Vocabula.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,12 +23,15 @@ builder.Services.AddSingleton<IMistralClient>(_ =>
 builder.Services.AddSingleton<INotebookKnowledgeExtractor>(_ =>
     new NotebookKnowledgeExtractor(
         _.GetRequiredService<IMistralClient>(),
-        "mistral-small-2506"));
+        "mistral-small-latest"));
 
 builder.Services.AddSingleton<IStoryGenerator>(_ =>
     new StoryGenerator(
         _.GetRequiredService<IMistralClient>(),
-        "mistral-small-2506"));
+        "mistral-small-latest"));
+
+builder.Services.AddDbContext<VocabulaDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("VocabulaDb")));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

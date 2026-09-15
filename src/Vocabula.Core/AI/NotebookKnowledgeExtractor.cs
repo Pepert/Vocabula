@@ -99,7 +99,7 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
             response_format = StructuredOutput("notebook_knowledge", KnowledgeSchema)
         };
 
-        return await _mistralClient.SendAsync<NotebookKnowledge>(request, JsonOptions, cancellationToken);
+        return await _mistralClient.SendAsync<NotebookKnowledge>(request, JsonOptions, "v1/chat/completions", cancellationToken);
     }
 
     private static object StructuredOutput(string name, string schema)

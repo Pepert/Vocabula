@@ -26,7 +26,7 @@ public sealed class MistralClientTests
             PropertyNameCaseInsensitive = true
         };
 
-        var result = await client.SendAsync<NotebookKnowledge>(new { }, jsonOptions);
+        var result = await client.SendAsync<NotebookKnowledge>(new { }, jsonOptions, cancellationToken: default);
 
         Assert.Equal("Swedish", result.TargetLanguage);
         Assert.Equal(2, handler.RequestBodies.Count);
@@ -45,7 +45,7 @@ public sealed class MistralClientTests
         var jsonOptions = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() => 
-            client.SendAsync<NotebookKnowledge>(new { }, jsonOptions));
+            client.SendAsync<NotebookKnowledge>(new { }, jsonOptions, cancellationToken: default));
 
         Assert.Contains("400", exception.Message);
         Assert.Single(handler.RequestBodies);
@@ -69,7 +69,7 @@ public sealed class MistralClientTests
         var jsonOptions = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() => 
-            client.SendAsync<NotebookKnowledge>(new { }, jsonOptions));
+            client.SendAsync<NotebookKnowledge>(new { }, jsonOptions, cancellationToken: default));
 
         Assert.Contains("503", exception.Message);
         Assert.Equal(5, handler.RequestBodies.Count);
@@ -91,7 +91,7 @@ public sealed class MistralClientTests
 
         var jsonOptions = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
 
-        var task = client.SendAsync<NotebookKnowledge>(new { }, jsonOptions, cts.Token);
+        var task = client.SendAsync<NotebookKnowledge>(new { }, jsonOptions, "v1/chat/completions", cts.Token);
         await Task.Delay(50);
         cts.Cancel();
 

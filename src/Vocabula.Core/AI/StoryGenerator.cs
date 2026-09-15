@@ -63,7 +63,7 @@ public sealed class StoryGenerator : IStoryGenerator
             response_format = StructuredOutput("generated_story", StorySchema)
         };
 
-        return await _mistralClient.SendAsync<GeneratedStory>(request, JsonOptions, cancellationToken);
+        return await _mistralClient.SendAsync<GeneratedStory>(request, JsonOptions, "v1/chat/completions", cancellationToken);
     }
 
     private static object StructuredOutput(string name, string schema)

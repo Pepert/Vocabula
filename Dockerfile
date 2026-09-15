@@ -19,11 +19,17 @@ COPY src/Vocabula.Core/Vocabula.Core.csproj \
 COPY src/Vocabula.Cli/Vocabula.Cli.csproj \
      src/Vocabula.Cli/
 
+COPY src/Vocabula.Infrastructure/Vocabula.Infrastructure.csproj \
+     src/Vocabula.Infrastructure/
+
 COPY tests/Vocabula.Api.Tests/Vocabula.Api.Tests.csproj \
      tests/Vocabula.Api.Tests/
 
 COPY tests/Vocabula.Core.Tests/Vocabula.Core.Tests.csproj \
      tests/Vocabula.Core.Tests/
+
+COPY tests/Vocabula.Infrastructure.Tests/Vocabula.Infrastructure.Tests.csproj \
+     tests/Vocabula.Infrastructure.Tests/
 
 RUN dotnet restore Vocabula.sln
 
