@@ -80,6 +80,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.Authority = cognitoAuthority;
+        // Keep Cognito claim names (sub, iss, client_id, token_use) unmapped
+        // so authorization code and CurrentAppUser can find them by their JWT names.
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
