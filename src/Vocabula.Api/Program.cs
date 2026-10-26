@@ -13,6 +13,31 @@ using Vocabula.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load local development settings from the repository's .env file when running
+// outside Docker Compose (which injects the same variables as environment variables).
+// Keys use the standard __ separator, e.g. AUTHENTICATION__COGNITO__AUTHORITY.
+if (builder.Environment.IsDevelopment())
+{
+    var directory = new DirectoryInfo(builder.Environment.ContentRootPath);
+    while (directory != null && !File.Exists(Path.Combine(directory.FullName, ".env")))
+    {
+        directory = directory.Parent;
+    }
+
+    if (directory != null)
+    {
+        var settings = File.ReadAllLines(Path.Combine(directory.FullName, ".env"))
+            .Where(line => !string.IsNullOrWhiteSpace(line) && !line.TrimStart().StartsWith('#'))
+            .Select(line => line.Split('=', 2))
+            .Where(parts => parts.Length == 2)
+            .ToDictionary(
+                parts => parts[0].Trim().Replace("__", ":"),
+                parts => (string?)parts[1].Trim());
+
+        builder.Configuration.AddInMemoryCollection(settings);
+    }
+}
+
 builder.Services.AddSingleton<IMistralClient>(_ =>
 {
     var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY");
