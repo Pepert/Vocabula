@@ -62,6 +62,8 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
         _visionModel = visionModel;
     }
 
+    private string GetEndpointPath() => _visionModel.Contains("ocr") ? "v1/documents/process" : "v1/chat/completions";
+
     public async Task<NotebookKnowledge> ExtractAsync(
         Stream image,
         string mediaType,
@@ -99,7 +101,7 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
             response_format = StructuredOutput("notebook_knowledge", KnowledgeSchema)
         };
 
-        return await _mistralClient.SendAsync<NotebookKnowledge>(request, JsonOptions, "v1/chat/completions", cancellationToken);
+        return await _mistralClient.SendAsync<NotebookKnowledge>(request, JsonOptions, GetEndpointPath(), cancellationToken);
     }
 
     private static object StructuredOutput(string name, string schema)
