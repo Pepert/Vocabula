@@ -61,18 +61,49 @@ public sealed class VocabulaDbContextModelTests
     }
 
     [Fact]
-    public void AppUser_HasRequiredEmailWithMaxLength()
+    public void AppUser_HasNullableEmailWithMaxLength()
     {
         using var context = new VocabulaDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AppUser))!;
 
         var emailProperty = entityType.FindProperty("Email")!;
-        Assert.False(emailProperty.IsNullable);
+        Assert.True(emailProperty.IsNullable);
         Assert.Equal(320, emailProperty.GetMaxLength());
 
         var normalizedEmailProperty = entityType.FindProperty("NormalizedEmail")!;
-        Assert.False(normalizedEmailProperty.IsNullable);
+        Assert.True(normalizedEmailProperty.IsNullable);
         Assert.Equal(320, normalizedEmailProperty.GetMaxLength());
+    }
+
+    [Fact]
+    public void AppUser_HasNullableIdentityProviderAndExternalSubject()
+    {
+        using var context = new VocabulaDbContext(_options);
+        var entityType = context.Model.FindEntityType(typeof(AppUser))!;
+
+        var identityProviderProperty = entityType.FindProperty("IdentityProvider")!;
+        Assert.True(identityProviderProperty.IsNullable);
+        Assert.Equal(100, identityProviderProperty.GetMaxLength());
+        Assert.Equal("identity_provider", identityProviderProperty.GetColumnName());
+
+        var externalSubjectProperty = entityType.FindProperty("ExternalSubject")!;
+        Assert.True(externalSubjectProperty.IsNullable);
+        Assert.Equal(255, externalSubjectProperty.GetMaxLength());
+        Assert.Equal("external_subject", externalSubjectProperty.GetColumnName());
+    }
+
+    [Fact]
+    public void AppUser_HasCompositeUniqueIndexOnIdentityProviderAndExternalSubject()
+    {
+        using var context = new VocabulaDbContext(_options);
+        var entityType = context.Model.FindEntityType(typeof(AppUser))!;
+        var index = entityType.GetIndexes()
+            .Single(i => i.GetDatabaseName() == "ix_app_users_identity_provider_external_subject");
+
+        Assert.True(index.IsUnique);
+        Assert.Equal(2, index.Properties.Count);
+        Assert.Equal("identity_provider", index.Properties[0].GetColumnName());
+        Assert.Equal("external_subject", index.Properties[1].GetColumnName());
     }
 
     [Fact]
