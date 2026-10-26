@@ -140,10 +140,12 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Cognito access token"
     });
 
-    // Add global security requirement using dictionary
-    c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    // Add global security requirement. The scheme reference needs the OpenApiDocument
+    // so that the requirement serializes as {"Bearer": []}; without it the requirement
+    // is emitted empty and Swagger UI never attaches the token to requests.
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
-        [new OpenApiSecuritySchemeReference("Bearer")] = new List<string>()
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
     });
 });
 
