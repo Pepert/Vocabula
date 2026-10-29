@@ -34,7 +34,7 @@ The first product use case is a single learner studying Swedish. The schema keep
 | Current AI model | `mistral-small-2506` for extraction and generation |
 | Local runtime | Rider and Docker Compose |
 | Persistence direction | PostgreSQL locally; potentially Amazon RDS for PostgreSQL in AWS |
-| Deployment direction | Container image in ECR, with an AWS container runtime to be decided |
+| Deployment direction | Container image in ECR, running on ECS Fargate (defined with Terraform, see [AWS deployment](architecture/aws-deployment.md)) |
 
 Model names are implementation details and may change after quality and cost evaluation.
 
@@ -53,13 +53,13 @@ Model names are implementation details and may change after quality and cost eva
 ## Documents
 
 - [Draft data model](architecture/data-model.md)
+- [AWS deployment](architecture/aws-deployment.md)
 
 Planned documents:
 
 - `product/vision-and-scope.md`
 - `architecture/system-context.md`
 - `architecture/local-development.md`
-- `architecture/aws-deployment.md`
 - `ai/models-and-prompts.md`
 - `decisions/` for Architecture Decision Records
 

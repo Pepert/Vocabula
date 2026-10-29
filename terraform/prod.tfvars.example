@@ -1,0 +1,30 @@
+# Copy this file to prod.tfvars and fill in the real values.
+# prod.tfvars is gitignored and never committed.
+#
+#   cp terraform/prod.tfvars.example terraform/prod.tfvars
+#
+# Then deploy with:
+#
+#   terraform apply -var-file=prod.tfvars
+
+aws_region = "eu-west-3"
+
+# Sensitive - ends up in Secrets Manager.
+mistral_api_key = "REPLACE_WITH_YOUR_MISTRAL_API_KEY"
+db_password     = "REPLACE_WITH_A_GENERATED_PASSWORD"
+
+# Database identity.
+db_username = "vocabula"
+db_name     = "vocabula"
+
+# Cognito user pool used by the API (not secret, but account-specific).
+cognito_authority     = "https://cognito-idp.eu-west-3.amazonaws.com/eu-west-3_pVJEZ5jFX"
+cognito_app_client_id = "7bnbulcbgqfguguap1chtmfu8a"
+
+# Container image tag to deploy from ECR.
+image_tag = "latest"
+
+# Leave empty in normal operation. Set to your public IP as a CIDR
+# (e.g. "203.0.113.5/32") only while running EF Core migrations:
+#   allow_migrations_from = "203.0.113.5/32"
+allow_migrations_from = ""
