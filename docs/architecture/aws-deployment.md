@@ -97,7 +97,7 @@ aws ecr get-login-password --region eu-west-3 \
 
 docker buildx build \
   --platform linux/arm64 \
-  -t $ECR_URL:latest \
+  -t "${ECR_URL}:latest" \
   --push .
 ```
 

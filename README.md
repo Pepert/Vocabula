@@ -77,7 +77,7 @@ aws ecr get-login-password --region eu-west-3 \
   | docker login --username AWS --password-stdin 614084726535.dkr.ecr.eu-west-3.amazonaws.com
 
 ECR_URL="614084726535.dkr.ecr.eu-west-3.amazonaws.com/vocabula-api"
-docker buildx build --platform linux/arm64 -t "$ECR_URL:latest" --push .
+docker buildx build --platform linux/arm64 -t "${ECR_URL}:latest" --push .
 ```
 
 After the push, the ECS service picks up the image automatically. Redeploying
