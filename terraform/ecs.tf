@@ -109,11 +109,11 @@ resource "aws_ecs_task_definition" "vocabula_api" {
         },
         {
           name  = "AUTHENTICATION__COGNITO__AUTHORITY"
-          value = var.cognito_authority
+          value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.vocabula.id}"
         },
         {
           name  = "AUTHENTICATION__COGNITO__APPCLIENTID"
-          value = var.cognito_app_client_id
+          value = aws_cognito_user_pool_client.vocabula_app.id
         }
       ]
 

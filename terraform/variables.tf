@@ -28,16 +28,6 @@ variable "db_name" {
   default     = "vocabula"
 }
 
-variable "cognito_authority" {
-  description = "Cognito user pool authority URL (Authentication:Cognito:Authority)."
-  type        = string
-}
-
-variable "cognito_app_client_id" {
-  description = "Cognito app client id (Authentication:Cognito:AppClientId)."
-  type        = string
-}
-
 variable "image_tag" {
   description = "Tag of the container image in ECR to deploy."
   type        = string

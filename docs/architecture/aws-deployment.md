@@ -30,6 +30,11 @@ Key decisions:
   `MISTRAL_API_KEY` and the PostgreSQL connection string. The ECS agent
   injects them as environment variables at container start, so the
   application code never talks to AWS and needs no changes.
+- **Cognito managed by Terraform**: the user pool, app client and hosted UI
+  domain are created by Terraform and wired directly into the ECS task
+  definition (authority + app client id), so the values never need to be
+  copied into `prod.tfvars`. Users are created manually via the AWS CLI so
+  that passwords stay out of Terraform state.
 - **HTTP only** for now; a 443 listener with an ACM certificate is added once
   the frontend needs HTTPS (it needs a domain name first).
 
@@ -128,8 +133,8 @@ export ConnectionStrings__VocabulaDb=$(aws secretsmanager get-secret-value \
   --query SecretString --output text | python3 -c \
   "import json,sys; print(json.load(sys.stdin)['ConnectionStrings__VocabulaDb'])")
 export MISTRAL_API_KEY=dummy
-export AUTHENTICATION__COGNITO__AUTHORITY=https://cognito-idp.eu-west-3.amazonaws.com/eu-west-3_pVJEZ5jFX
-export AUTHENTICATION__COGNITO__APPCLIENTID=7bnbulcbgqfguguap1chtmfu8a
+export AUTHENTICATION__COGNITO__AUTHORITY=$(cd terraform && terraform output -raw cognito_authority)
+export AUTHENTICATION__COGNITO__APPCLIENTID=$(cd terraform && terraform output -raw cognito_app_client_id)
 
 dotnet ef database update \
   --project src/Vocabula.Infrastructure \
@@ -144,6 +149,45 @@ terraform apply -var-file=prod.tfvars
 The dummy values for the Mistral/Cognito variables are only there because
 `Program.cs` validates their presence at design time; they are not used to
 talk to AWS.
+
+## Cognito users
+
+The user pool, app client and hosted UI domain are created by Terraform.
+Users themselves are created manually so that passwords never enter
+Terraform state:
+
+```bash
+POOL_ID=$(cd terraform && terraform output -raw cognito_user_pool_id)
+CLIENT_ID=$(cd terraform && terraform output -raw cognito_app_client_id)
+
+aws cognito-idp admin-create-user \
+  --user-pool-id $POOL_ID \
+  --username user@example.com \
+  --region eu-west-3
+
+# Set a permanent password for local token minting
+aws cognito-idp admin-set-user-password \
+  --user-pool-id $POOL_ID \
+  --username user@example.com \
+  --password 'A-Strong-Password!' \
+  --permanent \
+  --region eu-west-3
+
+# Mint a test access token
+TOKEN=$(aws cognito-idp admin-initiate-auth \
+  --user-pool-id $POOL_ID \
+  --client-id $CLIENT_ID \
+  --auth-flow ADMIN_USER_PASSWORD_AUTH \
+  --auth-parameters USERNAME=user@example.com,PASSWORD='A-Strong-Password!' \
+  --region eu-west-3 \
+  --query 'AuthenticationResult.AccessToken' \
+  --output text)
+
+curl -H "Authorization: Bearer $TOKEN" http://$ALB/api/users/me
+```
+
+The API validates tokens against the pool that Terraform wired into the
+task definition, so no configuration values are copied anywhere.
 
 ## Day-to-day operations
 

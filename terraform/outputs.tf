@@ -17,3 +17,23 @@ output "secrets_manager_arn" {
   description = "Secrets Manager secret holding the application secrets."
   value       = aws_secretsmanager_secret.vocabula.arn
 }
+
+output "cognito_user_pool_id" {
+  description = "Cognito user pool ID used by the API."
+  value       = aws_cognito_user_pool.vocabula.id
+}
+
+output "cognito_authority" {
+  description = "Cognito authority URL (Authentication:Cognito:Authority) the API is configured with."
+  value       = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.vocabula.id}"
+}
+
+output "cognito_app_client_id" {
+  description = "Cognito app client ID (Authentication:Cognito:AppClientId) the API is configured with."
+  value       = aws_cognito_user_pool_client.vocabula_app.id
+}
+
+output "cognito_hosted_ui_domain" {
+  description = "Cognito hosted UI domain (for the frontend's OAuth flows)."
+  value       = aws_cognito_user_pool_domain.vocabula.domain
+}

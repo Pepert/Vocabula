@@ -18,6 +18,13 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+
+  default_tags {
+    tags = {
+      project     = "vocabula"
+      environment = "prod"
+    }
+  }
 }
 
 data "aws_caller_identity" "current" {}
