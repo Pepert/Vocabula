@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.11"
 
   required_providers {
     aws = {
@@ -8,13 +8,15 @@ terraform {
     }
   }
 
-  # Backend bucket and lock table are created once by terraform/bootstrap/.
+  # Backend bucket is created once by terraform/bootstrap/.
+  # State locking uses the S3-native lockfile (Terraform >= 1.11);
+  # no DynamoDB lock table is needed.
   backend "s3" {
-    bucket         = "vocabula-terraform-state-614084726535"
-    key            = "vocabula/terraform.tfstate"
-    region         = "eu-west-3"
-    dynamodb_table = "vocabula-terraform-state-locks"
-    encrypt        = true
+    bucket       = "vocabula-terraform-state-614084726535"
+    key          = "vocabula/terraform.tfstate"
+    region       = "eu-west-3"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 

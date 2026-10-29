@@ -69,8 +69,9 @@ terraform apply
 cd ../..
 ```
 
-This creates the S3 bucket that stores the state and the DynamoDB table that
-locks it. The main configuration references these names in its backend block,
+This creates the S3 bucket that stores the state. State locking uses the
+S3-native lockfile (Terraform >= 1.11), so no DynamoDB table is involved.
+The main configuration references the bucket name in its backend block,
 so nothing else is needed afterwards.
 
 ### 3. Deploy the infrastructure
