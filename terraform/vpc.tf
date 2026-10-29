@@ -10,7 +10,7 @@ resource "aws_vpc" "vocabula" {
   enable_dns_support   = true
 
   tags = {
-    Name = "vocabula"
+    name = "vocabula"
   }
 }
 
@@ -22,7 +22,7 @@ resource "aws_internet_gateway" "vocabula" {
   vpc_id = aws_vpc.vocabula.id
 
   tags = {
-    Name = "vocabula"
+    name = "vocabula"
   }
 }
 
@@ -35,7 +35,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "vocabula-public-${count.index}"
+    name = "vocabula-public-${count.index}"
   }
 }
 
@@ -47,7 +47,7 @@ resource "aws_subnet" "private" {
   cidr_block        = cidrsubnet(aws_vpc.vocabula.cidr_block, 8, 10 + count.index)
 
   tags = {
-    Name = "vocabula-private-${count.index}"
+    name = "vocabula-private-${count.index}"
   }
 }
 
@@ -60,7 +60,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "vocabula-public"
+    name = "vocabula-public"
   }
 }
 

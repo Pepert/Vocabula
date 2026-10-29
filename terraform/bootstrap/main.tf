@@ -39,7 +39,7 @@ resource "aws_s3_bucket" "state" {
   bucket = "vocabula-terraform-state-${data.aws_caller_identity.current.account_id}"
 
   tags = {
-    Name = "vocabula-terraform-state"
+    name = "vocabula-terraform-state"
   }
 }
 
@@ -81,7 +81,7 @@ resource "aws_dynamodb_table" "locks" {
   }
 
   tags = {
-    Name = "vocabula-terraform-state-locks"
+    name = "vocabula-terraform-state-locks"
   }
 }
 

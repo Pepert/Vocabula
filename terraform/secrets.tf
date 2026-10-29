@@ -6,7 +6,7 @@ resource "aws_secretsmanager_secret" "vocabula" {
   name = "vocabula/prod"
 
   tags = {
-    Name = "vocabula-prod"
+    name = "vocabula-prod"
   }
 }
 

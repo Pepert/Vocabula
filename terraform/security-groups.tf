@@ -27,7 +27,7 @@ resource "aws_security_group" "alb" {
   }
 
   tags = {
-    Name = "vocabula-alb"
+    name = "vocabula-alb"
   }
 }
 
@@ -52,7 +52,7 @@ resource "aws_security_group" "ecs_task" {
   }
 
   tags = {
-    Name = "vocabula-task"
+    name = "vocabula-task"
   }
 }
 
@@ -88,6 +88,6 @@ resource "aws_security_group" "rds" {
   }
 
   tags = {
-    Name = "vocabula-rds"
+    name = "vocabula-rds"
   }
 }

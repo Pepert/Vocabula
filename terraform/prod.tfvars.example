@@ -17,10 +17,6 @@ db_password     = "REPLACE_WITH_A_GENERATED_PASSWORD"
 db_username = "vocabula"
 db_name     = "vocabula"
 
-# Cognito (pool, app client and hosted UI domain) is created by Terraform
-# itself; the ECS task definition references it directly, so no values are
-# needed here. See `terraform output` for the created identifiers.
-
 # Container image tag to deploy from ECR.
 image_tag = "latest"
 

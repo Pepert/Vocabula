@@ -6,7 +6,7 @@ resource "aws_lb" "vocabula" {
   subnets            = aws_subnet.public[*].id
 
   tags = {
-    Name = "vocabula"
+    name = "vocabula"
   }
 }
 
@@ -29,7 +29,7 @@ resource "aws_lb_target_group" "vocabula_api" {
   }
 
   tags = {
-    Name = "vocabula-api"
+    name = "vocabula-api"
   }
 }
 
@@ -70,6 +70,6 @@ resource "aws_ecs_service" "vocabula_api" {
   deployment_maximum_percent         = 200
 
   tags = {
-    Name = "vocabula-api"
+    name = "vocabula-api"
   }
 }

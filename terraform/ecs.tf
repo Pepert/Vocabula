@@ -2,7 +2,7 @@ resource "aws_ecs_cluster" "vocabula" {
   name = "vocabula"
 
   tags = {
-    Name = "vocabula"
+    name = "vocabula"
   }
 }
 
@@ -140,6 +140,6 @@ resource "aws_ecs_task_definition" "vocabula_api" {
   ])
 
   tags = {
-    Name = "vocabula-api"
+    name = "vocabula-api"
   }
 }

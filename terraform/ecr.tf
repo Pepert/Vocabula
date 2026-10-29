@@ -9,7 +9,7 @@ resource "aws_ecr_repository" "vocabula_api" {
   }
 
   tags = {
-    Name = "vocabula-api"
+    name = "vocabula-api"
   }
 }
 

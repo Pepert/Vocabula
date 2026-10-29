@@ -3,7 +3,7 @@ resource "aws_db_subnet_group" "vocabula" {
   subnet_ids = aws_subnet.private[*].id
 
   tags = {
-    Name = "vocabula"
+    name = "vocabula"
   }
 }
 
@@ -33,6 +33,6 @@ resource "aws_db_instance" "vocabula" {
   skip_final_snapshot      = true
 
   tags = {
-    Name = "vocabula"
+    name = "vocabula"
   }
 }
