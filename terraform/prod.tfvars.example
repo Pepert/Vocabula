@@ -23,5 +23,4 @@ image_tag = "latest"
 # Your public IP as a CIDR to reach the RDS database from your machine
 # (DBeaver, psql, EF Core migrations). Empty = database unreachable from
 # outside the VPC. Find your IP: curl https://checkip.amazonaws.com
-#   allow_db_access_from = "203.0.113.5/32"
 allow_db_access_from = ""
