@@ -1,6 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Vocabula.Api.Authorization;
 using Vocabula.Core.AI;
 using Vocabula.Core.Models;
 using Vocabula.Infrastructure.Persistence;
@@ -10,18 +12,23 @@ namespace Vocabula.Api.Controllers;
 
 [ApiController]
 [Route("api/stories")]
+[Authorize]
 public sealed class StoriesController : ControllerBase
 {
-    private static readonly Guid TestUserId = Guid.Parse("a7fa0f0d-30bc-4aaf-822d-6f7c6c9ebbe7");
     private const string TestLanguageCode = "sv";
 
     private readonly IStoryGenerator _generator;
     private readonly VocabulaDbContext _dbContext;
+    private readonly ICurrentAppUser _currentAppUser;
 
-    public StoriesController(IStoryGenerator generator, VocabulaDbContext dbContext)
+    public StoriesController(
+        IStoryGenerator generator,
+        VocabulaDbContext dbContext,
+        ICurrentAppUser currentAppUser)
     {
         _generator = generator;
         _dbContext = dbContext;
+        _currentAppUser = currentAppUser;
     }
 
     [HttpPost("generate")]
@@ -42,16 +49,18 @@ public sealed class StoriesController : ControllerBase
         {
             var story = await _generator.GenerateAsync(knowledge, cancellationToken);
 
-            // Find learning profile for test user
+            var userId = _currentAppUser.UserId;
+
+            // Find learning profile for authenticated user
             var learningProfile = await _dbContext.LearningProfiles
-                .FirstOrDefaultAsync(lp => lp.UserId == TestUserId && lp.LanguageCode == TestLanguageCode, cancellationToken);
+                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.LanguageCode == TestLanguageCode, cancellationToken);
 
             if (learningProfile == null)
             {
                 return BadRequest(new ProblemDetails
                 {
                     Title = "Learning profile not found",
-                    Detail = "No learning profile found for test user with language code 'sv'. Extract knowledge first."
+                    Detail = "No learning profile found for authenticated user with language code 'sv'. Extract knowledge first."
                 });
             }
 

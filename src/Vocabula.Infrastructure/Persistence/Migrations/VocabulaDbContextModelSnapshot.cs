@@ -34,13 +34,21 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)")
                         .HasColumnName("email");
 
+                    b.Property<string>("ExternalSubject")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("external_subject");
+
+                    b.Property<string>("IdentityProvider")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("identity_provider");
+
                     b.Property<string>("NormalizedEmail")
-                        .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)")
                         .HasColumnName("normalized_email");
@@ -50,6 +58,11 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("ix_app_users_normalized_email");
+
+                    b.HasIndex("IdentityProvider", "ExternalSubject")
+                        .IsUnique()
+                        .HasDatabaseName("ix_app_users_identity_provider_external_subject")
+                        .HasFilter("identity_provider IS NOT NULL AND external_subject IS NOT NULL");
 
                     b.ToTable("app_users", (string)null);
                 });

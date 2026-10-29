@@ -1,6 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Vocabula.Api.Authorization;
 using Vocabula.Core.AI;
 using Vocabula.Core.Models;
 using Vocabula.Infrastructure.Persistence;
@@ -10,18 +12,23 @@ namespace Vocabula.Api.Controllers;
 
 [ApiController]
 [Route("api/knowledge")]
+[Authorize]
 public sealed class KnowledgeController : ControllerBase
 {
-    private static readonly Guid TestUserId = Guid.Parse("a7fa0f0d-30bc-4aaf-822d-6f7c6c9ebbe7");
     private const string TestLanguageCode = "sv";
 
     private readonly INotebookKnowledgeExtractor _extractor;
     private readonly VocabulaDbContext _dbContext;
+    private readonly ICurrentAppUser _currentAppUser;
 
-    public KnowledgeController(INotebookKnowledgeExtractor extractor, VocabulaDbContext dbContext)
+    public KnowledgeController(
+        INotebookKnowledgeExtractor extractor,
+        VocabulaDbContext dbContext,
+        ICurrentAppUser currentAppUser)
     {
         _extractor = extractor;
         _dbContext = dbContext;
+        _currentAppUser = currentAppUser;
     }
 
     [HttpPost("extract")]
@@ -53,16 +60,18 @@ public sealed class KnowledgeController : ControllerBase
             await using var stream = request.Image.OpenReadStream();
             var knowledge = await _extractor.ExtractAsync(stream, request.Image.ContentType, cancellationToken);
 
-            // Find or create learning profile for test user
+            var userId = _currentAppUser.UserId;
+
+            // Find or create learning profile for authenticated user
             var learningProfile = await _dbContext.LearningProfiles
-                .FirstOrDefaultAsync(lp => lp.UserId == TestUserId && lp.LanguageCode == TestLanguageCode, cancellationToken);
+                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.LanguageCode == TestLanguageCode, cancellationToken);
 
             if (learningProfile == null)
             {
                 learningProfile = new Domain.LearningProfile
                 {
                     Id = Guid.NewGuid(),
-                    UserId = TestUserId,
+                    UserId = userId,
                     LanguageCode = TestLanguageCode,
                     CreatedAt = DateTimeOffset.UtcNow
                 };
