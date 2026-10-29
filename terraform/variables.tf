@@ -34,8 +34,8 @@ variable "image_tag" {
   default     = "latest"
 }
 
-variable "allow_migrations_from" {
-  description = "Set to your public IP as a CIDR (e.g. \"203.0.113.5/32\") to temporarily expose RDS for running EF Core migrations from your machine. Keep empty (\"\") in normal operation."
+variable "allow_db_access_from" {
+  description = "Your public IP as a CIDR (e.g. \"203.0.113.5/32\") to reach the RDS instance from your machine (DBeaver, psql, EF Core migrations). Keep empty (\"\") to keep the database unreachable from outside the VPC. The value lives in the gitignored prod.tfvars."
   type        = string
   default     = ""
 }

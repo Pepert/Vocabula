@@ -116,15 +116,28 @@ curl http://$ALB/health
 The Swagger UI is at `http://$ALB/swagger` (for a valid Cognito token, see
 `AuthenticationTests` / the Cognito user pool in `eu-west-3`).
 
+## Database access from your machine
+
+RDS lives in private subnets, so it is unreachable from outside the VPC by
+default. To work on the database from your machine (DBeaver, psql, EF Core
+migrations), set your public IP as a CIDR in `terraform/prod.tfvars`:
+
+```hcl
+allow_db_access_from = "203.0.113.5/32"
+```
+
+then apply. This opens PostgreSQL (5432) to that single IP and gives the
+instance a routable public address. Find your current IP with
+`curl https://checkip.amazonaws.com`. The IP lives only in the gitignored
+`prod.tfvars`. Set it back to `""` whenever you want the database closed
+again.
+
 ## Database migrations
 
-RDS is in private subnets, so migrations run from your machine by temporarily
-opening access to your IP:
+With `allow_db_access_from` set to your IP (see above):
 
 ```bash
-MY_IP=$(curl -s https://checkip.amazonaws.com)
 cd terraform
-# edit prod.tfvars: allow_migrations_from = "$MY_IP/32"
 terraform apply -var-file=prod.tfvars
 cd ..
 
@@ -140,11 +153,6 @@ export AUTHENTICATION__COGNITO__APPCLIENTID=$(cd terraform && terraform output -
 dotnet ef database update \
   --project src/Vocabula.Infrastructure \
   --startup-project src/Vocabula.Api
-
-# Close the temporary access again
-cd terraform
-# edit prod.tfvars: allow_migrations_from = ""
-terraform apply -var-file=prod.tfvars
 ```
 
 The dummy values for the Mistral/Cognito variables are only there because

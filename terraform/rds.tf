@@ -24,7 +24,7 @@ resource "aws_db_instance" "vocabula" {
 
   db_subnet_group_name   = aws_db_subnet_group.vocabula.name
   vpc_security_group_ids = [aws_security_group.rds.id]
-  publicly_accessible    = var.allow_migrations_from != ""
+  publicly_accessible    = var.allow_db_access_from != ""
 
   # Keep the instance running around the clock; the application is always-on.
   backup_retention_period  = 7

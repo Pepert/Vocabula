@@ -69,9 +69,9 @@ resource "aws_security_group" "rds" {
   }
 
   dynamic "ingress" {
-    for_each = var.allow_migrations_from != "" ? [var.allow_migrations_from] : []
+    for_each = var.allow_db_access_from != "" ? [var.allow_db_access_from] : []
     content {
-      description = "Temporary access for running EF Core migrations from the developer machine"
+      description = "Developer access from the configured IP (SQL client, migrations)"
       from_port   = 5432
       to_port     = 5432
       protocol    = "tcp"

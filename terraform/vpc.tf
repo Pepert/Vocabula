@@ -72,10 +72,10 @@ resource "aws_route_table_association" "public" {
 }
 
 # Route table for the private subnets (RDS). It normally carries no routes
-# beyond the implicit VPC-local one. When allow_migrations_from is set, a
-# temporary default route to the internet gateway is added so the RDS public
-# IP becomes reachable from the developer machine; publicly_accessible alone
-# does not work from subnets without an internet route.
+# beyond the implicit VPC-local one. When allow_db_access_from is set, a
+# default route to the internet gateway is added so the RDS public IP becomes
+# reachable from the developer machine; publicly_accessible alone does not
+# work from subnets without an internet route.
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.vocabula.id
 
@@ -85,7 +85,7 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "migrations" {
-  count = var.allow_migrations_from != "" ? 1 : 0
+  count = var.allow_db_access_from != "" ? 1 : 0
 
   route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
