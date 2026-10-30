@@ -108,13 +108,20 @@ after the health check (`GET /health`) passes twice, the API is live.
 ### 5. Verify
 
 ```bash
-ALB=$(cd terraform && terraform output -raw alb_dns_name)
-curl http://$ALB/health
+API=$(cd terraform && terraform output -raw api_url)
+curl $API/health
 # {"status":"healthy"}
 ```
 
-The Swagger UI is at `http://$ALB/swagger` (for a valid Cognito token, see
+`api_url` (`https://api.vocabula.dev`) routes to the load balancer via
+Route 53 with a TLS certificate; plain HTTP requests to the load balancer or
+the API domain are redirected to HTTPS. The Swagger UI is at
+`https://api.vocabula.dev/swagger` (for a valid Cognito token, see
 `AuthenticationTests` / the Cognito user pool in `eu-west-3`).
+
+DNS delegation: `vocabula.dev` is registered at Porkbun; the Route 53 zone's
+nameservers (`terraform output domain_nameservers`) must be set as the
+domain's nameservers at the registrar.
 
 ## Database access from your machine
 
@@ -214,6 +221,5 @@ task definition, so no configuration values are copied anywhere.
 
 ## Open questions
 
-- HTTPS: which domain name, and how is DNS managed (Route 53)?
 - Should the Fargate service scale to zero overnight (no users yet) to cut
   the ~$14/month compute cost?
