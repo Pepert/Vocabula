@@ -1,0 +1,26 @@
+# Copy this file to prod.tfvars and fill in the real values.
+# prod.tfvars is gitignored and never committed.
+#
+#   cp terraform/prod.tfvars.example terraform/prod.tfvars
+#
+# Then deploy with:
+#
+#   terraform apply -var-file=prod.tfvars
+
+aws_region = "eu-west-3"
+
+# Sensitive - ends up in Secrets Manager.
+mistral_api_key = "REPLACE_WITH_YOUR_MISTRAL_API_KEY"
+db_password     = "REPLACE_WITH_A_GENERATED_PASSWORD"
+
+# Database identity.
+db_username = "vocabula"
+db_name     = "vocabula"
+
+# Container image tag to deploy from ECR.
+image_tag = "latest"
+
+# Your public IP as a CIDR to reach the RDS database from your machine
+# (DBeaver, psql, EF Core migrations). Empty = database unreachable from
+# outside the VPC. Find your IP: curl https://checkip.amazonaws.com
+allow_db_access_from = ""

@@ -9,3 +9,10 @@ input/*
 !input/.gitkeep
 .env
 *.user
+
+# Terraform state and secrets must never be committed
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+terraform/prod.tfvars
