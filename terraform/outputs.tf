@@ -1,6 +1,16 @@
 output "alb_dns_name" {
-  description = "Public DNS name of the load balancer. The API is reachable at http://<alb_dns_name>/."
+  description = "Public DNS name of the load balancer. Use api_url in production instead."
   value       = aws_lb.vocabula.dns_name
+}
+
+output "api_url" {
+  description = "Stable, HTTPS API endpoint served via the load balancer."
+  value       = "https://api.${var.domain_name}"
+}
+
+output "domain_nameservers" {
+  description = "Nameservers to set at the registrar (Porkbun) for the Route 53 zone."
+  value       = aws_route53_zone.vocabula.name_servers
 }
 
 output "ecr_repository_url" {
