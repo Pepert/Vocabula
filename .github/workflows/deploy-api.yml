@@ -22,22 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug OIDC token claims
-        run: |
-          python3 - <<'EOF'
-          import base64, json, os, urllib.request
-          req = urllib.request.Request(
-              os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com",
-              headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]},
-          )
-          token = json.load(urllib.request.urlopen(req))["value"]
-          payload = token.split(".")[1]
-          payload += "=" * (-len(payload) % 4)
-          claims = json.loads(base64.urlsafe_b64decode(payload))
-          print("OIDC claims:")
-          print(json.dumps({k: claims[k] for k in ("iss", "sub", "aud")}, indent=2))
-          EOF
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
