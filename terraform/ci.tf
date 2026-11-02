@@ -68,6 +68,9 @@ data "aws_iam_policy_document" "ci_deploy" {
     actions = [
       "ecr:GetAuthorizationToken",
       "ecr:BatchCheckLayerAvailability",
+      # BatchGetImage: buildx inspects existing manifests when pushing
+      # multiple tags, even though AWS's docs list it only for pulls.
+      "ecr:BatchGetImage",
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
