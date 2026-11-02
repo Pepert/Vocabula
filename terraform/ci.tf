@@ -10,10 +10,22 @@ variable "github_repository" {
   default     = "Pepert/Vocabula"
 }
 
+# GitHub's OIDC certificate thumbprints, fetched live at apply time from the
+# endpoint GitHub is actually serving. If GitHub ever rotates its certificate
+# chain, the workflow fails loudly at the OIDC handshake and re-running
+# `terraform apply` (which re-fetches this chain) is the whole fix — no code
+# change needed.
+data "tls_certificate" "github_oidc" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+
+  thumbprint_list = [
+    for cert in data.tls_certificate.github_oidc.certificates : cert.sha1_fingerprint
+  ]
 
   tags = {
     name = "github-actions"
