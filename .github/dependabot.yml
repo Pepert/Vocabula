@@ -4,8 +4,21 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # Routine updates arrive as a single PR instead of one per action.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # Routine updates arrive as a single PR instead of one per package.
+      # Major version bumps stay as individual PRs for explicit review.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
