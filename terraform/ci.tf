@@ -4,36 +4,22 @@
 # and assumes a role that can only push images to ECR and trigger a new
 # deployment of the ECS service. Terraform plans and applies stay manual.
 
-variable "github_repository" {
-  description = "GitHub repository (owner/name) allowed to assume the CI deploy role."
+variable "github_oidc_repo_prefix" {
+  description = "Repository identifier in GitHub's OIDC sub claim: 'owner@<owner-id>/repo@<repo-id>'. GitHub embedded the numeric IDs in 2025 to make the claim immune to owner/repo renames; the IDs are stable and not secret. The CI run logs the exact sub claim it presents (see the debug step in the deploy workflow) if this ever needs updating."
   type        = string
-  default     = "Pepert/Vocabula"
-}
-
-# GitHub's OIDC certificate thumbprints, fetched live at apply time from the
-# endpoint GitHub is actually serving. If GitHub ever rotates its certificate
-# chain, the workflow fails loudly at the OIDC handshake and re-running
-# `terraform apply` (which re-fetches this chain) is the whole fix — no code
-# change needed.
-data "tls_certificate" "github_oidc" {
-  url = "https://token.actions.githubusercontent.com"
+  default     = "repo:Pepert@17185529/Vocabula@1352346632"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
 
-  # Union of GitHub's published signing thumbprints and the fingerprints of
-  # the certificate chain served live by the endpoint. AWS validates the
-  # token-signing chain (which the published thumbprints cover), while the
-  # TLS-served chain can differ; registering both removes all ambiguity.
-  thumbprint_list = distinct(concat(
-    [
-      "6938fd4d98bab03faadb97b34396831e3780aea1",
-      "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
-    ],
-    [for cert in data.tls_certificate.github_oidc.certificates : cert.sha1_fingerprint]
-  ))
+  # GitHub's two published signing-certificate thumbprints (the community
+  # standard set; GitHub's docs list exactly these).
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+  ]
 
   tags = {
     name = "github-actions"
@@ -59,8 +45,8 @@ data "aws_iam_policy_document" "ci_deploy_assume" {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${var.github_repository}:ref:refs/heads/main",
-        "repo:${var.github_repository}:environment:production"
+        "${var.github_oidc_repo_prefix}:ref:refs/heads/main",
+        "${var.github_oidc_repo_prefix}:environment:production"
       ]
     }
   }
