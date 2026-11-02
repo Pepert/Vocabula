@@ -23,9 +23,17 @@ resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
 
-  thumbprint_list = [
-    for cert in data.tls_certificate.github_oidc.certificates : cert.sha1_fingerprint
-  ]
+  # Union of GitHub's published signing thumbprints and the fingerprints of
+  # the certificate chain served live by the endpoint. AWS validates the
+  # token-signing chain (which the published thumbprints cover), while the
+  # TLS-served chain can differ; registering both removes all ambiguity.
+  thumbprint_list = distinct(concat(
+    [
+      "6938fd4d98bab03faadb97b34396831e3780aea1",
+      "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
+    ],
+    [for cert in data.tls_certificate.github_oidc.certificates : cert.sha1_fingerprint]
+  ))
 
   tags = {
     name = "github-actions"
