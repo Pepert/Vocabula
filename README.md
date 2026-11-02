@@ -1,89 +1,79 @@
 # Vocabula
 
-Storytelling application generating personalized reading content for language learners.
+**Storytelling application generating personalized reading content for language learners.**
+Learners photograph their study material, the API extracts the vocabulary and grammar they've acquired with the help of an LLM, and the next chapter of their own story is generated against that knowledge.
 
-## ASP.NET Core API
+[![Deploy API](https://github.com/Pepert/Vocabula/actions/workflows/deploy-api.yml/badge.svg)](https://github.com/Pepert/Vocabula/actions/workflows/deploy-api.yml)
+[![API status](https://img.shields.io/website?url=https%3A%2F%2Fapi.vocabula.dev%2Fhealth)](https://api.vocabula.dev/swagger)
 
-A local ASP.NET Core Web API that provides:
+**Live:** the API runs on AWS at **[api.vocabula.dev/swagger](https://api.vocabula.dev/swagger)** — deployed end-to-end by GitHub Actions (merge to `main` → build → test → push to ECR → health-gated ECS rollout).
 
-- `POST /api/knowledge/extract` - Extract structured vocabulary and grammar from a notebook image
-- `POST /api/stories/generate` - Generate a story from extracted knowledge
-- `GET /health` - Health check endpoint
+## What's in this repo
 
-### Open in Rider
+| Layer | Tech |
+|---|---|
+| API | ASP.NET Core (.NET 10), EF Core, PostgreSQL |
+| AI | Mistral API — OCR extraction (`mistral-ocr-latest`) + story generation |
+| Auth | Amazon Cognito (JWT validation, users auto-provisioned in PostgreSQL) |
+| Infrastructure | Terraform — ECS Fargate (ARM64/Graviton), RDS, ALB, Route 53, ACM, Secrets Manager, Cognito |
+| CI/CD | GitHub Actions with OIDC (no stored cloud credentials), ARM64 runners |
 
-Open `Vocabula.sln`. If Rider does not detect the SDK automatically, configure the .NET CLI executable as:
-
-```text
-/Users/leo/.dotnet/dotnet
-```
-
-### Run the API
-
-1. In Rider, create or edit the run configuration for `Vocabula.Api` and add this environment variable:
-
-   ```text
-   MISTRAL_API_KEY=<your key>
-   ```
-
-   Do not put the real key in source code.
-
-2. Run `Vocabula.Api` from Rider.
-
-The API starts on `http://localhost:5000` with Swagger UI available at `http://localhost:5000/swagger`.
-
-### Command-line usage
-
-Alternatively, use the CLI application `Vocabula.Cli`:
-
-1. Copy a notebook photo to:
-
-   ```text
-   /Users/leo/Development/Projects/Vocabula/input/notebook.jpeg
-   ```
-
-   JPG, PNG, and WebP are supported.
-
-2. In Rider, create or edit the run configuration for `Vocabula.Cli` and add this environment variable:
-
-   ```text
-   MISTRAL_API_KEY=<your key>
-   ```
-
-3. Run `Vocabula.Cli` from Rider.
-
-The result is printed and written to:
-
-```text
-/Users/leo/Development/Projects/Vocabula/output/result.json
-```
+The frontend (React Native / Expo) lives in a sibling repo: `VocabulaFrontend`.
 
 ## Architecture
 
-- `Vocabula.Core` - Domain models and AI services (no ASP.NET dependencies)
-- `Vocabula.Cli` - Console application
-- `Vocabula.Api` - ASP.NET Core Web API
-- `terraform/` - AWS infrastructure (ECS Fargate, RDS, ALB, Cognito, Secrets Manager)
+```mermaid
+flowchart LR
+    U[Learner / mobile app] --> ALB[ALB<br/>https://api.vocabula.dev]
+    ALB --> T[ECS Fargate<br/>ARM64, .NET 10]
+    T -->|EF Core| RDS[(RDS PostgreSQL)]
+    T -->|OCR + generation|M[Mistral API]
+    GH[GitHub Actions<br/>merge to main] -->|build, test, push| ECR[(ECR)]
+    GH -->|redeploy| T
+    T -->|validate tokens| C[Cognito]
+    S[Secrets Manager] -.->|env at container start| T
+```
+
+Full infrastructure documentation: [docs/architecture/aws-deployment.md](docs/architecture/aws-deployment.md) — including the local deployment walkthrough, cost breakdown, and the reasoning behind each choice.
+
+### API endpoints
+
+- `POST /api/knowledge/extract` — extract structured vocabulary and grammar from a notebook image (multipart upload)
+- `POST /api/stories/generate` — generate the next part of the learner's story from acquired knowledge
+- `GET /api/users/me` — identity of the authenticated user (Cognito JWT required)
+- `GET /health` — health check (public)
+
+## Running locally
+
+```bash
+# PostgreSQL via Docker Compose
+docker compose up -d postgres
+
+# Configure secrets (never committed — see .env.example entries in README history)
+# MISTRAL_API_KEY, AUTHENTICATION__COGNITO__*, ConnectionStrings__VocabulaDb
+
+dotnet run --project src/Vocabula.Api
+# Swagger at http://localhost:5001/swagger
+```
+
+The solution structure:
+
+- `src/Vocabula.Core` — domain models and AI services (no ASP.NET dependencies)
+- `src/Vocabula.Infrastructure` — EF Core persistence, migrations, PostgreSQL
+- `src/Vocabula.Api` — ASP.NET Core Web API
+- `terraform/` — the full AWS stack, applied manually (infra changes never run in CI)
+- `docs/` — architecture and deployment documentation
 
 ## Deploy to AWS
 
 The infrastructure is defined in [`terraform/`](terraform/) and documented in
 [docs/architecture/aws-deployment.md](docs/architecture/aws-deployment.md).
-Terraform creates the ECR repository; the container image is built and pushed
-from this machine:
+
+CI deploys the application: **merging to `main` builds, tests, and rolls out a new version automatically** (GitHub Actions assumes a least-privilege IAM role via OIDC — no long-lived cloud credentials in the repo).
+
+Infrastructure changes (Terraform) are applied manually from the developer machine:
 
 ```bash
-aws ecr get-login-password --region eu-west-3 \
-  | docker login --username AWS --password-stdin 614084726535.dkr.ecr.eu-west-3.amazonaws.com
-
-ECR_URL="614084726535.dkr.ecr.eu-west-3.amazonaws.com/vocabula-api"
-docker buildx build --platform linux/arm64 -t "${ECR_URL}:latest" --push .
-```
-
-After the push, the ECS service picks up the image automatically. Redeploying
-after a new push with the same tag:
-
-```bash
-aws ecs update-service --cluster vocabula --service vocabula-api \
-  --force-new-deployment --region eu-west-3
+cd terraform
+terraform apply -var-file=prod.tfvars
 ```
