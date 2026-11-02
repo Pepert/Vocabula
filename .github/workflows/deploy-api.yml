@@ -1,0 +1,69 @@
+name: Deploy API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, test and deploy to ECS
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CI_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-3
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        run: |
+          REGISTRY="614084726535.dkr.ecr.eu-west-3.amazonaws.com"
+          aws ecr get-login-password --region eu-west-3 \
+            | docker login --username AWS --password-stdin "$REGISTRY"
+          echo "image=$REGISTRY/vocabula-api" >> "$GITHUB_OUTPUT"
+
+      # The Dockerfile runs the full test suite inside the build stage.
+      - name: Build and push image
+        run: |
+          IMAGE="${{ steps.ecr.outputs.image }}"
+          docker buildx build \
+            --platform linux/arm64 \
+            -t "${IMAGE}:latest" \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            --push .
+
+      - name: Trigger new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster vocabula \
+            --service vocabula-api \
+            --force-new-deployment \
+            --region eu-west-3
+
+      - name: Wait for service to be stable
+        run: |
+          echo "Waiting for the ECS service to redeploy (health check is /health)..."
+          aws ecs wait services-stable \
+            --cluster vocabula \
+            --services vocabula-api \
+            --region eu-west-3
+
+      - name: Smoke test
+        run: |
+          curl --fail --retry 5 --retry-delay 15 --retry-connrefused \
+            https://api.vocabula.dev/health
+          echo "API is live and healthy."
