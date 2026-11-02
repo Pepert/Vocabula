@@ -1,0 +1,6 @@
+root = true
+
+[*.cs]
+# Unnecessary using directives are warnings so that both the IDE and
+# `dotnet format` keep the imports clean.
+dotnet_diagnostic.IDE0005.severity = warning

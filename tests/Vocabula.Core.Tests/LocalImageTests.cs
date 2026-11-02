@@ -1,5 +1,4 @@
 using System.Text;
-using Vocabula.Core;
 
 namespace Vocabula.Core.Tests;
 
