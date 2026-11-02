@@ -1,4 +1,3 @@
-using Vocabula.Core;
 using Vocabula.Core.Models;
 
 namespace Vocabula.Core.Tests;

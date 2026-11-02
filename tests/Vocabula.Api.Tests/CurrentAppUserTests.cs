@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using Vocabula.Api.Authorization;
 using Vocabula.Infrastructure.Persistence;
-using Xunit;
 
 namespace Vocabula.Api.Tests;
 

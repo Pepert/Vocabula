@@ -1,14 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Npgsql;
-using Swashbuckle.AspNetCore.Swagger;
-using Swashbuckle.AspNetCore.SwaggerGen;
 using Vocabula.Api.Authorization;
 using Vocabula.Core.AI;
-using Vocabula.Core.Models;
 using Vocabula.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
