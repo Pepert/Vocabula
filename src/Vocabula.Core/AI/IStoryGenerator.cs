@@ -6,5 +6,6 @@ public interface IStoryGenerator
 {
     Task<GeneratedStory> GenerateAsync(
         NotebookKnowledge knowledge,
+        string? previousStorySummary = null,
         CancellationToken cancellationToken = default);
 }

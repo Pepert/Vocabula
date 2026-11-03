@@ -38,11 +38,16 @@ public sealed class StoryGenerator : IStoryGenerator
 
     public async Task<GeneratedStory> GenerateAsync(
         NotebookKnowledge knowledge,
+        string? previousStorySummary = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(knowledge);
 
         var knowledgeJson = JsonSerializer.Serialize(knowledge, JsonOptions);
+
+        var continuationInstruction = string.IsNullOrWhiteSpace(previousStorySummary)
+            ? "Write a short, coherent, engaging beginner story in "
+            : "Continue the following story with its next chapter, in the same style, in ";
 
         var request = new
         {
@@ -52,10 +57,13 @@ public sealed class StoryGenerator : IStoryGenerator
                 new
                 {
                     role = "user",
-                    content = "Write a short, coherent, engaging beginner story in " + knowledge.TargetLanguage +
+                    content = continuationInstruction + knowledge.TargetLanguage +
                              ". Prioritize the supplied vocabulary and grammar. Keep unavoidable new language to a " +
                              "minimum and report it honestly in potentiallyNewLanguage. Do not claim an item was used " +
                              "unless it appears in the story. Return JSON matching the supplied schema.\n\n" +
+                             (string.IsNullOrWhiteSpace(previousStorySummary)
+                                 ? ""
+                                 : "Story so far (last chapter summary):\n" + previousStorySummary + "\n\n") +
                              "Approved notebook knowledge:\n" + knowledgeJson
                 }
             },
