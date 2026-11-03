@@ -97,10 +97,11 @@ resource "aws_cognito_user_pool_client" "vocabula_app" {
   callback_urls = [
     "http://localhost:5001",
     "http://localhost:5001/swagger/oauth2-redirect.html",
-    "https://d84l1y8p4kdic.cloudfront.net"
+    "https://d84l1y8p4kdic.cloudfront.net",
+    "vocabula://callback"
   ]
 
-  logout_urls = ["http://localhost:5001"]
+  logout_urls = ["http://localhost:5001", "vocabula://callback"]
 }
 
 resource "aws_cognito_user_pool_domain" "vocabula" {
