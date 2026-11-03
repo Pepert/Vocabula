@@ -50,7 +50,7 @@ builder.Services.AddSingleton<IMistralClient>(_ =>
 builder.Services.AddSingleton<INotebookKnowledgeExtractor>(_ =>
     new NotebookKnowledgeExtractor(
         _.GetRequiredService<IMistralClient>(),
-        "mistral-ocr-latest"));
+        "mistral-small-latest"));
 
 builder.Services.AddSingleton<IStoryGenerator>(_ =>
     new StoryGenerator(
