@@ -39,6 +39,8 @@ public sealed class StoryGenerator : IStoryGenerator
     public async Task<GeneratedStory> GenerateAsync(
         NotebookKnowledge knowledge,
         string? previousStorySummary = null,
+        IReadOnlyList<string>? acquiredVocabulary = null,
+        IReadOnlyList<string>? acquiredGrammar = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(knowledge);
@@ -46,8 +48,24 @@ public sealed class StoryGenerator : IStoryGenerator
         var knowledgeJson = JsonSerializer.Serialize(knowledge, JsonOptions);
 
         var continuationInstruction = string.IsNullOrWhiteSpace(previousStorySummary)
-            ? "Write a short, coherent, engaging beginner story in "
-            : "Continue the following story with its next chapter, in the same style, in ";
+            ? "Write a very short, simple beginner story in "
+            : "Continue the following story with its next chapter, at the same simple beginner level, in ";
+
+        var constraints =
+            "STRICT CONSTRAINTS: " +
+            "1. Write at beginner level with short, simple sentences. " +
+            "2. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
+            "3. You may introduce AT MOST 3 words that are not in the supplied lists; " +
+            "list every such word in potentiallyNewLanguage. " +
+            "4. Do not claim an item was used unless it appears in the story.\n\n";
+
+        var acquiredSection =
+            acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }
+                ? "Vocabulary and grammar the learner has already acquired (reuse these first):\n" +
+                  string.Join(", ", acquiredVocabulary ?? []) +
+                  (acquiredGrammar is { Count: > 0 } ? "\nGrammar: " + string.Join(", ", acquiredGrammar) : "") +
+                  "\n\n"
+                : "";
 
         var request = new
         {
@@ -58,12 +76,11 @@ public sealed class StoryGenerator : IStoryGenerator
                 {
                     role = "user",
                     content = continuationInstruction + knowledge.TargetLanguage +
-                             ". Prioritize the supplied vocabulary and grammar. Keep unavoidable new language to a " +
-                             "minimum and report it honestly in potentiallyNewLanguage. Do not claim an item was used " +
-                             "unless it appears in the story. Return JSON matching the supplied schema.\n\n" +
+                             ".\n" + constraints +
                              (string.IsNullOrWhiteSpace(previousStorySummary)
                                  ? ""
                                  : "Story so far (last chapter summary):\n" + previousStorySummary + "\n\n") +
+                             acquiredSection +
                              "Approved notebook knowledge:\n" + knowledgeJson
                 }
             },

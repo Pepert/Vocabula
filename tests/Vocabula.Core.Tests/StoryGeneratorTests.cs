@@ -68,13 +68,13 @@ public sealed class StoryGeneratorTests
 
         var content = MessageContent(client);
 
-        Assert.Contains("Write a short, coherent, engaging beginner story", content);
+        Assert.Contains("Write a very short, simple beginner story", content);
         Assert.DoesNotContain("Continue the following story", content);
         Assert.DoesNotContain("Story so far", content);
     }
 
     [Fact]
-    public async Task GenerateAsync_WithPreviousSummary_ReturnsGeneratedStory()
+    public async Task GenerateAsync_ReturnsGeneratedStory()
     {
         var client = new RecordingMistralClient();
         var generator = new StoryGenerator(client, "mistral-small-latest");
@@ -83,5 +83,54 @@ public sealed class StoryGeneratorTests
 
         Assert.Equal("A morning in Stockholm", story.Title);
         Assert.Contains("Hej", story.Story);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptLimitsNewVocabularyToThree()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("AT MOST 3 words", content);
+        Assert.Contains("Use ONLY the vocabulary and grammar supplied", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_WithAcquiredKnowledge_IncludesItInPrompt()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(
+            Knowledge,
+            previousStorySummary: null,
+            acquiredVocabulary: ["hus", "katt", "springer"],
+            acquiredGrammar: ["present tense"],
+            cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("already acquired", content);
+        Assert.Contains("hus", content);
+        Assert.Contains("katt", content);
+        Assert.Contains("springer", content);
+        Assert.Contains("present tense", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_WithoutAcquiredKnowledge_OmitsAcquiredSection()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.DoesNotContain("already acquired", content);
     }
 }

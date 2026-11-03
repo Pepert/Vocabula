@@ -67,7 +67,23 @@ public sealed class StoriesController : ControllerBase
             var storyEntity = await _dbContext.Stories
                 .FirstOrDefaultAsync(s => s.LearningProfileId == learningProfile.Id, cancellationToken);
 
-            var story = await _generator.GenerateAsync(knowledge, storyEntity?.CurrentSummary, cancellationToken);
+            // Everything the learner has acquired so far, so the story stays
+            // close to their actual level (not just the latest extraction).
+            var acquiredVocabulary = await _dbContext.VocabularyItems
+                .Where(v => v.LearningProfileId == learningProfile.Id)
+                .Select(v => v.Term)
+                .ToListAsync(cancellationToken);
+            var acquiredGrammar = await _dbContext.GrammarPoints
+                .Where(g => g.LearningProfileId == learningProfile.Id)
+                .Select(g => g.Name)
+                .ToListAsync(cancellationToken);
+
+            var story = await _generator.GenerateAsync(
+                knowledge,
+                storyEntity?.CurrentSummary,
+                acquiredVocabulary,
+                acquiredGrammar,
+                cancellationToken);
 
             if (storyEntity == null)
             {
