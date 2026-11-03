@@ -13,6 +13,13 @@ aws_region = "eu-west-3"
 mistral_api_key = "REPLACE_WITH_YOUR_MISTRAL_API_KEY"
 db_password     = "REPLACE_WITH_A_GENERATED_PASSWORD"
 
+# Social sign-in credentials (from the Google Cloud console and the LinkedIn
+# developer console; see docs/architecture/aws-deployment.md).
+google_client_id     = "REPLACE_WITH_GOOGLE_CLIENT_ID"
+google_client_secret = "REPLACE_WITH_GOOGLE_CLIENT_SECRET"
+linkedin_client_id     = "REPLACE_WITH_LINKEDIN_CLIENT_ID"
+linkedin_client_secret = "REPLACE_WITH_LINKEDIN_CLIENT_SECRET"
+
 # Database identity.
 db_username = "vocabula"
 db_name     = "vocabula"
