@@ -83,15 +83,25 @@ resource "aws_cognito_user_pool_client" "vocabula_app" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code", "implicit"]
   allowed_oauth_scopes                 = ["email", "openid", "phone"]
-  supported_identity_providers         = ["COGNITO"]
+  # COGNITO = the pool's own sign-in; Google and LinkedIn are the federated
+  # providers defined in social-idps.tf. Listing them makes their buttons
+  # appear on the hosted UI. The explicit depends_on orders this update
+  # after the providers exist (they are referenced by name only).
+  supported_identity_providers = ["COGNITO", "Google", "LinkedIn"]
+
+  depends_on = [
+    aws_cognito_identity_provider.google,
+    aws_cognito_identity_provider.linkedin
+  ]
 
   callback_urls = [
     "http://localhost:5001",
     "http://localhost:5001/swagger/oauth2-redirect.html",
-    "https://d84l1y8p4kdic.cloudfront.net"
+    "https://d84l1y8p4kdic.cloudfront.net",
+    "vocabula://callback"
   ]
 
-  logout_urls = ["http://localhost:5001"]
+  logout_urls = ["http://localhost:5001", "vocabula://callback"]
 }
 
 resource "aws_cognito_user_pool_domain" "vocabula" {
