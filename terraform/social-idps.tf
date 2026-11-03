@@ -39,14 +39,24 @@ resource "aws_cognito_identity_provider" "google" {
   # Google is a built-in Cognito provider type, not a generic OIDC one.
   provider_type = "Google"
 
+  # Cognito auto-populates the Google endpoints and defaults when the
+  # provider is created; declaring them here keeps Terraform from planning
+  # their removal.
   provider_details = {
-    client_id        = var.google_client_id
-    client_secret    = var.google_client_secret
-    authorize_scopes = "openid email profile"
+    client_id                     = var.google_client_id
+    client_secret                 = var.google_client_secret
+    authorize_scopes              = "openid email profile"
+    oidc_issuer                   = "https://accounts.google.com"
+    authorize_url                 = "https://accounts.google.com/o/oauth2/v2/auth"
+    token_url                     = "https://www.googleapis.com/oauth2/v4/token"
+    attributes_url                = "https://people.googleapis.com/v1/people/me?personFields="
+    attributes_url_add_attributes = "true"
+    token_request_method          = "POST"
   }
 
   attribute_mapping = {
-    email = "email"
+    email    = "email"
+    username = "sub"
   }
 }
 
@@ -56,14 +66,16 @@ resource "aws_cognito_identity_provider" "linkedin" {
   provider_type = "OIDC"
 
   provider_details = {
-    client_id                 = var.linkedin_client_id
-    client_secret             = var.linkedin_client_secret
-    authorize_scopes          = "openid email profile"
-    oidc_issuer               = "https://www.linkedin.com/oauth"
-    attributes_request_method = "GET"
+    client_id                     = var.linkedin_client_id
+    client_secret                 = var.linkedin_client_secret
+    authorize_scopes              = "openid email profile"
+    oidc_issuer                   = "https://www.linkedin.com/oauth"
+    attributes_request_method     = "GET"
+    attributes_url_add_attributes = "false"
   }
 
   attribute_mapping = {
-    email = "email"
+    email    = "email"
+    username = "sub"
   }
 }
