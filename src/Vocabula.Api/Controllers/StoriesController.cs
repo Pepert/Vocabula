@@ -130,12 +130,14 @@ public sealed class StoriesController : ControllerBase
                 ? story.Summary
                 : story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story;
 
-            // Create chapter
+            // Create chapter (the generated title is this chapter's own title;
+            // the story-level title stays the one chosen for chapter 1)
             var chapter = new Domain.StoryChapter
             {
                 Id = Guid.NewGuid(),
                 StoryId = storyEntity.Id,
                 ChapterNumber = nextChapterNumber,
+                Title = story.Title,
                 Content = story.Story,
                 ResultingSummary = summary,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -187,6 +189,7 @@ public sealed class StoriesController : ControllerBase
             select new StoryChapterResponse(
                 chapter.ChapterNumber,
                 story.Title,
+                chapter.Title ?? story.Title,
                 chapter.Content,
                 chapter.CreatedAt)
         ).ToListAsync(cancellationToken);
@@ -209,7 +212,7 @@ public sealed class StoriesController : ControllerBase
     }
 }
 
-public sealed record StoryChapterResponse(int ChapterNumber, string StoryTitle, string Content, DateTimeOffset CreatedAt);
+public sealed record StoryChapterResponse(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
 
 public sealed record StoryChaptersResponse(IReadOnlyList<StoryChapterResponse> Chapters);
 

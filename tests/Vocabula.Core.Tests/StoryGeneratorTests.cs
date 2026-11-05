@@ -15,7 +15,11 @@ public sealed class StoryGeneratorTests
 
     private sealed class RecordingMistralClient : IMistralClient
     {
-        public object? LastRequest { get; private set; }
+        private readonly Queue<GeneratedStory> _responses = new();
+
+        public List<object> Requests { get; } = [];
+
+        public void Enqueue(GeneratedStory response) => _responses.Enqueue(response);
 
         public Task<T> SendAsync<T>(
             object request,
@@ -23,31 +27,42 @@ public sealed class StoryGeneratorTests
             string endpointPath = "v1/chat/completions",
             CancellationToken cancellationToken = default)
         {
-            LastRequest = request;
+            Requests.Add(request);
 
-            var canned = new GeneratedStory(
-                "A morning in Stockholm",
-                "Hej! sade hon...",
-                ["hej"],
-                [],
-                [],
-                "Hon säger hej.");
-
-            return Task.FromResult((T)(object)canned);
+            return Task.FromResult((T)(object)_responses.Dequeue());
         }
     }
 
-    private static string MessageContent(RecordingMistralClient client)
+    private static string MessageContent(RecordingMistralClient client, int index = 0)
     {
-        var document = JsonSerializer.SerializeToDocument(client.LastRequest!);
-        return document.RootElement.GetProperty("messages")[0].GetProperty("content").GetString()!;
+        var document = JsonSerializer.SerializeToDocument(client.Requests[index]);
+        return document.RootElement.GetProperty("messages")[index].GetProperty("content").GetString()!;
     }
+
+    private static GeneratedStory ValidStory(string title = "A morning in Stockholm") => new(
+        title,
+        "Hej! sade hon...",
+        ["hej"],
+        [],
+        [],
+        "Hon säger hej.");
+
+    // "sade" is the only word outside the supplied "hej" vocabulary,
+    // so this story passes the code-enforced word cap without a rewrite.
+    private static GeneratedStory OverCapStory(string title) => new(
+        title,
+        "Banan klockan solen skiner morgonen.",
+        ["hej"],
+        [],
+        [],
+        "Han äter banan.");
 
     [Fact]
     public async Task GenerateAsync_WithPreviousSummary_PromptsForContinuation()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, "Nora found a red envelope under the door...", cancellationToken: default);
 
@@ -63,7 +78,8 @@ public sealed class StoryGeneratorTests
     public async Task GenerateAsync_WithoutPreviousSummary_PromptsForNewStory()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
@@ -78,7 +94,8 @@ public sealed class StoryGeneratorTests
     public async Task GenerateAsync_ReturnsGeneratedStory()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         var story = await generator.GenerateAsync(Knowledge, "previous chapter summary");
 
@@ -91,7 +108,8 @@ public sealed class StoryGeneratorTests
     public async Task GenerateAsync_PromptLimitsNewVocabularyToThree()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
@@ -104,37 +122,41 @@ public sealed class StoryGeneratorTests
     }
 
     [Fact]
-    public async Task GenerateAsync_PromptRequiresTitleInTargetLanguage()
+    public async Task GenerateAsync_PromptRequiresChapterTitleInTargetLanguage()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
         var content = MessageContent(client);
 
-        Assert.Contains("Write the title in Swedish", content);
+        Assert.Contains("Write the title of THIS chapter in Swedish", content);
         Assert.Contains("never in another language", content);
     }
 
     [Fact]
-    public async Task GenerateAsync_PromptEnforcesDialogueScriptFormatting()
+    public async Task GenerateAsync_PromptPutsDialogueLinesOnSeparateLines()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
         var content = MessageContent(client);
 
-        Assert.Contains("start every spoken line with an em dash", content);
+        Assert.Contains("put every spoken line on its own line", content);
+        Assert.Contains("em dash", content);
     }
 
     [Fact]
     public async Task GenerateAsync_PromptLimitsEmojiToOne()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
@@ -147,7 +169,8 @@ public sealed class StoryGeneratorTests
     public async Task GenerateAsync_PromptRequestsChapterRecapInSummary()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
@@ -157,14 +180,30 @@ public sealed class StoryGeneratorTests
     }
 
     [Fact]
-    public async Task GenerateAsync_SchemaRequiresSummaryField()
+    public async Task GenerateAsync_SummaryIsWrittenInTargetLanguageLevel()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
-        var schema = JsonSerializer.SerializeToDocument(client.LastRequest!)
+        var content = MessageContent(client);
+
+        Assert.Contains("1 to 3 short sentences in Swedish", content);
+        Assert.Contains("learner's level", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SchemaRequiresSummaryField()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
             .RootElement
             .GetProperty("response_format")
             .GetProperty("json_schema")
@@ -180,24 +219,11 @@ public sealed class StoryGeneratorTests
     }
 
     [Fact]
-    public async Task GenerateAsync_SummaryIsWrittenInTargetLanguageLevel()
-    {
-        var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
-
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
-
-        var content = MessageContent(client);
-
-        Assert.Contains("1 to 3 short sentences in Swedish", content);
-        Assert.Contains("learner's level", content);
-    }
-
-    [Fact]
     public async Task GenerateAsync_WithAcquiredKnowledge_IncludesItInPrompt()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(
             Knowledge,
@@ -219,12 +245,86 @@ public sealed class StoryGeneratorTests
     public async Task GenerateAsync_WithoutAcquiredKnowledge_OmitsAcquiredSection()
     {
         var client = new RecordingMistralClient();
-        var generator = new StoryGenerator(client, "mistral-small-latest");
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
         var content = MessageContent(client);
 
         Assert.DoesNotContain("already acquired", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_CompliantChapter_SingleCallAndComputedNewWords()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        Assert.Single(client.Requests);
+        // The word check result replaces whatever the model claimed: only
+        // "sade" is outside the "hej" vocabulary (hon is a function word).
+        Assert.Equal(["sade"], story.PotentiallyNewLanguage);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_OverCapChapter_IsRewrittenWithFeedback()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(OverCapStory("Kapitel ett"));
+        client.Enqueue(ValidStory("Kapitel ett, bättre"));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        // The retry request replays the first attempt as an assistant
+        // message, then points at the exact words that broke the cap.
+        Assert.Equal(2, client.Requests.Count);
+        var retry = JsonSerializer.SerializeToDocument(client.Requests[1])
+            .RootElement
+            .GetProperty("messages");
+        Assert.Equal(3, retry.GetArrayLength());
+        Assert.Equal("assistant", retry[1].GetProperty("role").GetString());
+        Assert.Contains("Kapitel ett", retry[1].GetProperty("content").GetString());
+
+        var feedback = retry[2].GetProperty("content").GetString()!;
+        Assert.Equal("user", retry[2].GetProperty("role").GetString());
+        Assert.Contains("klockan", feedback);
+        Assert.Contains("morgonen", feedback);
+
+        Assert.Equal("Kapitel ett, bättre", story.Title);
+        Assert.Equal(["sade"], story.PotentiallyNewLanguage);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_RepeatedlyOverCap_ReturnsLatestChapterAfterMaxRetries()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(OverCapStory("Overlimit chapter one"));
+        client.Enqueue(OverCapStory("Overlimit chapter two"));
+        client.Enqueue(OverCapStory("Overlimit chapter three"));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        // Initial attempt plus two rewrites, then give up gracefully.
+        Assert.Equal(3, client.Requests.Count);
+        Assert.Equal("Overlimit chapter three", story.Title);
+        ConfirmThenRewrite(client.Requests[1], firstOffending: "Overlimit chapter one");
+        ConfirmThenRewrite(client.Requests[2], firstOffending: "Overlimit chapter two");
+    }
+
+    private static void ConfirmThenRewrite(object request, string firstOffending)
+    {
+        // The attempt that broke the cap is replayed as the assistant message.
+        var messages = JsonSerializer.SerializeToDocument(request)
+            .RootElement
+            .GetProperty("messages");
+        Assert.Contains(firstOffending, messages[messages.GetArrayLength() - 2]
+            .GetProperty("content")
+            .GetString());
     }
 }

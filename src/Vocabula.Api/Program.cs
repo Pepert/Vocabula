@@ -52,10 +52,13 @@ builder.Services.AddSingleton<INotebookKnowledgeExtractor>(_ =>
         _.GetRequiredService<IMistralClient>(),
         "mistral-small-latest"));
 
+// The generator needs stronger instruction-following than the extractor:
+// it must respect the new-word cap and reuse the chapter recap, which
+// mistral-medium does far more reliably than small.
 builder.Services.AddSingleton<IStoryGenerator>(_ =>
     new StoryGenerator(
         _.GetRequiredService<IMistralClient>(),
-        "mistral-small-latest"));
+        "mistral-medium-latest"));
 
 builder.Services.AddDbContext<VocabulaDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("VocabulaDb")));

@@ -5,6 +5,7 @@ public sealed class StoryChapter
     public Guid Id { get; set; }
     public Guid StoryId { get; set; }
     public int ChapterNumber { get; set; }
+    public string? Title { get; set; }
     public string Content { get; set; } = null!;
     public string? ResultingSummary { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
