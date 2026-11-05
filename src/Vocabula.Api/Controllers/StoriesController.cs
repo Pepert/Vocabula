@@ -123,20 +123,29 @@ public sealed class StoriesController : ControllerBase
                 .ToListAsync(cancellationToken);
             int nextChapterNumber = (maxChapter.Count == 0 ? 0 : maxChapter.Max()) + 1;
 
-            // Create chapter
+            // The model recaps the chapter in the summary field so the next
+            // generation continues from a real recap; the truncation is only
+            // a fallback if the model ever returns an empty summary.
+            var summary = !string.IsNullOrWhiteSpace(story.Summary)
+                ? story.Summary
+                : story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story;
+
+            // Create chapter (the generated title is this chapter's own title;
+            // the story-level title stays the one chosen for chapter 1)
             var chapter = new Domain.StoryChapter
             {
                 Id = Guid.NewGuid(),
                 StoryId = storyEntity.Id,
                 ChapterNumber = nextChapterNumber,
+                Title = story.Title,
                 Content = story.Story,
-                ResultingSummary = story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story,
+                ResultingSummary = summary,
                 CreatedAt = DateTimeOffset.UtcNow
             };
             _dbContext.StoryChapters.Add(chapter);
 
             // Update story current summary
-            storyEntity.CurrentSummary = story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story;
+            storyEntity.CurrentSummary = summary;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -180,6 +189,7 @@ public sealed class StoriesController : ControllerBase
             select new StoryChapterResponse(
                 chapter.ChapterNumber,
                 story.Title,
+                chapter.Title ?? story.Title,
                 chapter.Content,
                 chapter.CreatedAt)
         ).ToListAsync(cancellationToken);
@@ -202,7 +212,7 @@ public sealed class StoriesController : ControllerBase
     }
 }
 
-public sealed record StoryChapterResponse(int ChapterNumber, string StoryTitle, string Content, DateTimeOffset CreatedAt);
+public sealed record StoryChapterResponse(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
 
 public sealed record StoryChaptersResponse(IReadOnlyList<StoryChapterResponse> Chapters);
 

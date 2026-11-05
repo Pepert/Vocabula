@@ -8,15 +8,22 @@ public sealed class StoryGenerator : IStoryGenerator
     private const string StorySchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"additionalProperties\": false,\n" +
-        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\"],\n" +
+        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\"],\n" +
         "  \"properties\": {\n" +
         "    \"title\": { \"type\": \"string\" },\n" +
         "    \"story\": { \"type\": \"string\" },\n" +
         "    \"usedVocabulary\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
         "    \"usedGrammarPoints\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
-        "    \"potentiallyNewLanguage\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n" +
+        "    \"potentiallyNewLanguage\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
+        "    \"summary\": { \"type\": \"string\" }\n" +
         "  }\n" +
         "}";
+
+    private const double Temperature = 0.4;
+
+    // The new-word limit is enforced in code; the model gets this many
+    // chances to rewrite before the latest attempt is returned as-is.
+    private const int MaxRewrites = 2;
 
     private readonly IMistralClient _mistralClient;
     private readonly string _storyModel;
@@ -46,7 +53,52 @@ public sealed class StoryGenerator : IStoryGenerator
         ArgumentNullException.ThrowIfNull(knowledge);
 
         var knowledgeJson = JsonSerializer.Serialize(knowledge, JsonOptions);
+        var allowedTerms = CollectAllowedTerms(knowledge, acquiredVocabulary, acquiredGrammar);
 
+        var messages = new List<object>
+        {
+            new { role = "user", content = BuildUserPrompt(knowledge, knowledgeJson, previousStorySummary, acquiredVocabulary, acquiredGrammar) }
+        };
+
+        var rewrites = 0;
+        GeneratedStory story;
+        while (true)
+        {
+            var request = new
+            {
+                model = _storyModel,
+                // Snapshot: later retries must not mutate earlier payloads.
+                messages = messages.ToList(),
+                temperature = Temperature,
+                response_format = StructuredOutput("generated_story", StorySchema)
+            };
+
+            story = await _mistralClient.SendAsync<GeneratedStory>(request, JsonOptions, "v1/chat/completions", cancellationToken);
+
+            // LLMs cannot reliably count their own words, so the cap is
+            // verified programmatically instead of trusted.
+            var newWords = StoryWordChecker.FindNewWords(story.Story, allowedTerms);
+
+            if (newWords.Count <= StoryWordChecker.MaxNewWordsPerChapter || rewrites >= MaxRewrites)
+            {
+                // The computed list is authoritative: report what the code
+                // found, not what the model claims.
+                return story with { PotentiallyNewLanguage = newWords };
+            }
+
+            rewrites++;
+            messages.Add(new { role = "assistant", content = JsonSerializer.Serialize(story, JsonOptions) });
+            messages.Add(new { role = "user", content = BuildRewriteFeedback(newWords) });
+        }
+    }
+
+    private static string BuildUserPrompt(
+        NotebookKnowledge knowledge,
+        string knowledgeJson,
+        string? previousStorySummary,
+        IReadOnlyList<string>? acquiredVocabulary,
+        IReadOnlyList<string>? acquiredGrammar)
+    {
         var continuationInstruction = string.IsNullOrWhiteSpace(previousStorySummary)
             ? "Write a very short, simple beginner story in "
             : "Continue the following story with its next chapter, at the same simple beginner level, in ";
@@ -54,10 +106,18 @@ public sealed class StoryGenerator : IStoryGenerator
         var constraints =
             "STRICT CONSTRAINTS: " +
             "1. Write at beginner level with short, simple sentences. " +
-            "2. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
-            "3. You may introduce AT MOST 3 words that are not in the supplied lists; " +
-            "list every such word in potentiallyNewLanguage. " +
-            "4. Do not claim an item was used unless it appears in the story.\n\n";
+            "2. Write the title of THIS chapter in " + knowledge.TargetLanguage + " (never in another language), " +
+            "maximum 4 words, favouring words from the supplied vocabulary. " +
+            "3. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
+            "4. You may use AT MOST 3 words that are not in the supplied lists. " +
+            "Count them before answering: if you find more than 3, rewrite the chapter with simpler wording instead of answering. " +
+            "List every such word in potentiallyNewLanguage. " +
+            "5. If the chapter contains dialogue, put every spoken line on its own line, " +
+            "starting with an em dash followed by a space (example: — Hej, säger Anna.). " +
+            "6. Include at most one emoji in the chapter. " +
+            "7. Do not claim an item was used unless it appears in the story. " +
+            "8. Write in the summary field 1 to 3 short sentences in " + knowledge.TargetLanguage + " " +
+            "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story.\n\n";
 
         var acquiredSection =
             acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }
@@ -67,28 +127,53 @@ public sealed class StoryGenerator : IStoryGenerator
                   "\n\n"
                 : "";
 
-        var request = new
-        {
-            model = _storyModel,
-            messages = new[]
-            {
-                new
-                {
-                    role = "user",
-                    content = continuationInstruction + knowledge.TargetLanguage +
-                             ".\n" + constraints +
-                             (string.IsNullOrWhiteSpace(previousStorySummary)
-                                 ? ""
-                                 : "Story so far (last chapter summary):\n" + previousStorySummary + "\n\n") +
-                             acquiredSection +
-                             "Approved notebook knowledge:\n" + knowledgeJson
-                }
-            },
-            temperature = 0.7,
-            response_format = StructuredOutput("generated_story", StorySchema)
-        };
+        return continuationInstruction + knowledge.TargetLanguage +
+               ".\n" + constraints +
+               (string.IsNullOrWhiteSpace(previousStorySummary)
+                   ? ""
+                   : "Story so far (last chapter summary):\n" + previousStorySummary + "\n\n") +
+               acquiredSection +
+               "Approved notebook knowledge:\n" + knowledgeJson;
+    }
 
-        return await _mistralClient.SendAsync<GeneratedStory>(request, JsonOptions, "v1/chat/completions", cancellationToken);
+    private static string BuildRewriteFeedback(IReadOnlyList<string> newWords)
+    {
+        return "Your chapter uses more than " + StoryWordChecker.MaxNewWordsPerChapter +
+               " words that are not in the supplied lists: " + string.Join(", ", newWords) + ". " +
+               "Rewrite the chapter with the same constraints and the same JSON output format, " +
+               "replacing these words with supplied vocabulary wherever possible. " +
+               "Keep the same story and the same summary.";
+    }
+
+    private static IEnumerable<string> CollectAllowedTerms(
+        NotebookKnowledge knowledge,
+        IReadOnlyList<string>? acquiredVocabulary,
+        IReadOnlyList<string>? acquiredGrammar)
+    {
+        foreach (var term in acquiredVocabulary ?? [])
+        {
+            yield return term;
+        }
+
+        foreach (var grammar in acquiredGrammar ?? [])
+        {
+            yield return grammar;
+        }
+
+        foreach (var entry in knowledge.Vocabulary)
+        {
+            yield return entry.Term;
+            yield return entry.BaseForm;
+        }
+
+        foreach (var point in knowledge.GrammarPoints)
+        {
+            yield return point.Name;
+            foreach (var example in point.Examples)
+            {
+                yield return example;
+            }
+        }
     }
 
     private static object StructuredOutput(string name, string schema)

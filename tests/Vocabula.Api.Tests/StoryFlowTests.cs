@@ -138,12 +138,16 @@ public sealed class StoryFlowTests
 
         Assert.NotNull(chapters);
         Assert.Equal([1, 2], chapters.Chapters.Select(c => c.ChapterNumber).ToArray());
-        Assert.All(chapters.Chapters, chapter => Assert.Equal("Hej", chapter.StoryTitle));
+        Assert.All(chapters.Chapters, chapter =>
+        {
+            Assert.Equal("Hej", chapter.StoryTitle);
+            Assert.Equal("Hej", chapter.Title); // each chapter carries its own title
+        });
     }
 
     private sealed record ChaptersStub(ChapterStub[] Chapters);
 
-    private sealed record ChapterStub(int ChapterNumber, string StoryTitle, string Content, DateTimeOffset CreatedAt);
+    private sealed record ChapterStub(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
 
     private sealed record HttpValidationProblemDetailsStub(string? Title);
 }
