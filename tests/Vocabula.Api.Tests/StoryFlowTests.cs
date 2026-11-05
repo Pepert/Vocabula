@@ -80,6 +80,37 @@ public sealed class StoryFlowTests
     }
 
     [Fact]
+    public async Task Extract_AfterThirdChapterOnSameDay_Returns429BeforeTranscribing()
+    {
+        using var factory = new AuthenticatedWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Three chapters: the day's quota is spent.
+        using var form = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1);
+        var knowledge = await (await client.PostAsync("/api/knowledge/extract", form))
+            .Content.ReadFromJsonAsync<NotebookKnowledge>(JsonOptions);
+        Assert.NotNull(knowledge);
+
+        for (var i = 0; i < 3; i++)
+        {
+            using var generate = await client.PostAsync(
+                "/api/stories/generate",
+                AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge));
+            Assert.Equal(HttpStatusCode.OK, generate.StatusCode);
+        }
+
+        // The next upload is rejected before any transcription runs.
+        // The fake extractor throws if reached: too-late enforcement fails the test.
+        factory.EnsureExtractorThrows = true;
+        using var rejected = await client.PostAsync(
+            "/api/knowledge/extract",
+            AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1));
+
+        Assert.Equal((HttpStatusCode)429, rejected.StatusCode);
+        Assert.True(rejected.Headers.Contains("Retry-After"), "the 429 must carry a Retry-After header");
+    }
+
+    [Fact]
     public async Task GetChapters_ReturnsChaptersInReadingOrder()
     {
         using var factory = new AuthenticatedWebApplicationFactory();
