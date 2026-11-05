@@ -16,6 +16,7 @@ namespace Vocabula.Api.Controllers;
 public sealed class StoriesController : ControllerBase
 {
     private const string TestLanguageCode = "sv";
+    private const int MaxChaptersPerDay = 3;
 
     private readonly IStoryGenerator _generator;
     private readonly VocabulaDbContext _dbContext;
@@ -59,6 +60,33 @@ public sealed class StoriesController : ControllerBase
                 {
                     Title = "Learning profile not found",
                     Detail = "No learning profile found for authenticated user with language code 'sv'. Extract knowledge first."
+                });
+            }
+
+            // Daily guard: at most MaxChaptersPerDay chapters per user per
+            // UTC day, checked before any generation cost is incurred.
+            var nowUtc = DateTimeOffset.UtcNow;
+            var todayStartUtc = new DateTimeOffset(nowUtc.Year, nowUtc.Month, nowUtc.Day, 0, 0, 0, TimeSpan.Zero);
+            var storyIdForProfile = await _dbContext.Stories
+                .Where(s => s.LearningProfileId == learningProfile.Id)
+                .Select(s => (Guid?)s.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+            var chaptersToday = storyIdForProfile == null
+                ? 0
+                : await _dbContext.StoryChapters.CountAsync(
+                    sc => sc.StoryId == storyIdForProfile && sc.CreatedAt >= todayStartUtc,
+                    cancellationToken);
+
+            if (chaptersToday >= MaxChaptersPerDay)
+            {
+                var resetAtUtc = todayStartUtc.AddDays(1);
+                Response.Headers["Retry-After"] = Convert.ToInt32((resetAtUtc - nowUtc).TotalSeconds).ToString();
+
+                return StatusCode(429, new ProblemDetails
+                {
+                    Title = "Daily story limit reached",
+                    Detail = $"You can write up to {MaxChaptersPerDay} chapters per day. The next chapter unlocks at {resetAtUtc:HH:mm} UTC.",
+                    Status = 429
                 });
             }
 
