@@ -62,8 +62,11 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
         _visionModel = visionModel;
     }
 
-    private string GetEndpointPath() => _visionModel.Contains("ocr") ? "v1/documents/process" : "v1/chat/completions";
-
+    // The extractor uses the chat/completions vision API: the image and the
+    // structured-output schema go in a single chat message. Mistral's OCR
+    // API (v1/ocr) returns transcribed text and cannot produce structured
+    // knowledge; routing there sent chat bodies to a non-existent endpoint
+    // ("v1/documents/process") and failed with 404.
     public async Task<NotebookKnowledge> ExtractAsync(
         Stream image,
         string mediaType,
@@ -101,7 +104,7 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
             response_format = StructuredOutput("notebook_knowledge", KnowledgeSchema)
         };
 
-        return await _mistralClient.SendAsync<NotebookKnowledge>(request, JsonOptions, GetEndpointPath(), cancellationToken);
+        return await _mistralClient.SendAsync<NotebookKnowledge>(request, JsonOptions, "v1/chat/completions", cancellationToken);
     }
 
     private static object StructuredOutput(string name, string schema)

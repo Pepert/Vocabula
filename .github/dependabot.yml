@@ -22,3 +22,9 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Swashbuckle.AspNetCore 10.x compiles against Microsoft.OpenApi 2.7.5;
+      # a 3.x runtime produces MissingMethodException when generating the
+      # OpenAPI document. Revisit when a Swashbuckle release targets 3.x.
+      - dependency-name: "Microsoft.OpenApi"
+        versions: ["[3.0.0,)"]

@@ -64,6 +64,10 @@ jobs:
 
       - name: Smoke test
         run: |
+          # /health proves the app is up; the OpenAPI document proves the
+          # swagger middleware renders (catches binary incompatibilities
+          # that only surface when generating the document).
           curl --fail --retry 5 --retry-delay 15 --retry-connrefused \
             https://api.vocabula.dev/health
+          curl --fail https://api.vocabula.dev/swagger/v1/swagger.json > /dev/null
           echo "API is live and healthy."
