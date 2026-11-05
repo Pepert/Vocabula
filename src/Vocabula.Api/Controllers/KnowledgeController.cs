@@ -71,15 +71,6 @@ public sealed class KnowledgeController : ControllerBase
 
         try
         {
-            // Extract every page in parallel, then merge into one notebook
-            // knowledge object (deduplicated across pages).
-            var extractions = await Task.WhenAll(request.Images.Select(async image =>
-            {
-                await using var stream = image.OpenReadStream();
-                return await _extractor.ExtractAsync(stream, image.ContentType, cancellationToken);
-            }));
-            var knowledge = NotebookKnowledgeMerger.Merge(extractions);
-
             var userId = _currentAppUser.UserId;
 
             // Find or create learning profile for authenticated user
@@ -98,6 +89,32 @@ public sealed class KnowledgeController : ControllerBase
                 _dbContext.LearningProfiles.Add(learningProfile);
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
+
+            // Daily guard before any transcription cost: adding resources
+            // always leads to writing a chapter, so the shared chapter quota
+            // applies here too - reported before the pictures are read.
+            var (chaptersToday, resetsAtUtc) = await StoryQuota.GetChaptersTodayAsync(
+                _dbContext, learningProfile.Id, cancellationToken);
+            if (StoryQuota.IsExceeded(chaptersToday))
+            {
+                Response.Headers["Retry-After"] = Convert.ToInt32((resetsAtUtc - DateTimeOffset.UtcNow).TotalSeconds).ToString();
+
+                return StatusCode(429, new ProblemDetails
+                {
+                    Title = "Daily story limit reached",
+                    Detail = $"You can write up to {StoryQuota.MaxChaptersPerDay} chapters per day. The next chapter unlocks at {resetsAtUtc:HH:mm} UTC.",
+                    Status = 429
+                });
+            }
+
+            // Extract every page in parallel, then merge into one notebook
+            // knowledge object (deduplicated across pages).
+            var extractions = await Task.WhenAll(request.Images.Select(async image =>
+            {
+                await using var stream = image.OpenReadStream();
+                return await _extractor.ExtractAsync(stream, image.ContentType, cancellationToken);
+            }));
+            var knowledge = NotebookKnowledgeMerger.Merge(extractions);
 
             // One learning source per uploaded page.
             var now = DateTimeOffset.UtcNow;

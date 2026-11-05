@@ -23,6 +23,12 @@ namespace Vocabula.Api.Tests;
 /// </summary>
 public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// When true, any reach of the (fake) extractor throws - used by tests
+    /// that must prove code is NOT reached.
+    /// </summary>
+    public bool EnsureExtractorThrows { get; set; }
+
     public NotebookKnowledge ExtractorKnowledge { get; set; } = new(
         "Swedish",
         "a notebook page",
@@ -79,7 +85,7 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
 
             // Fake AI services.
             services.Replace(ServiceDescriptor.Singleton<INotebookKnowledgeExtractor>(
-                new FakeExtractor(() => ExtractorKnowledge)));
+                new FakeExtractor(() => ExtractorKnowledge, () => EnsureExtractorThrows)));
             services.Replace(ServiceDescriptor.Singleton<IStoryGenerator>(
                 new FakeStoryGenerator(() => StoryResult)));
         });
@@ -87,13 +93,18 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
         return base.CreateHost(builder);
     }
 
-    private sealed class FakeExtractor(Func<NotebookKnowledge> knowledge) : INotebookKnowledgeExtractor
+    private sealed class FakeExtractor(Func<NotebookKnowledge> knowledge, Func<bool> throwIfReached) : INotebookKnowledgeExtractor
     {
         public Task<NotebookKnowledge> ExtractAsync(
             Stream image,
             string mediaType,
             CancellationToken cancellationToken = default)
         {
+            if (throwIfReached())
+            {
+                throw new InvalidOperationException("The extractor was reached, but the test required it not to be.");
+            }
+
             image.ReadByte(); // consume something like the real client would
             return Task.FromResult(knowledge());
         }
