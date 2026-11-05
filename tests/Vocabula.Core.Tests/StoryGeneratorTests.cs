@@ -30,7 +30,8 @@ public sealed class StoryGeneratorTests
                 "Hej! sade hon...",
                 ["hej"],
                 [],
-                []);
+                [],
+                "Hon säger hej.");
 
             return Task.FromResult((T)(object)canned);
         }
@@ -83,6 +84,7 @@ public sealed class StoryGeneratorTests
 
         Assert.Equal("A morning in Stockholm", story.Title);
         Assert.Contains("Hej", story.Story);
+        Assert.Equal("Hon säger hej.", story.Summary);
     }
 
     [Fact]
@@ -97,6 +99,98 @@ public sealed class StoryGeneratorTests
 
         Assert.Contains("AT MOST 3 words", content);
         Assert.Contains("Use ONLY the vocabulary and grammar supplied", content);
+        // The model must self-check the count instead of exceeding the cap.
+        Assert.Contains("rewrite the chapter", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptRequiresTitleInTargetLanguage()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("Write the title in Swedish", content);
+        Assert.Contains("never in another language", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptEnforcesDialogueScriptFormatting()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("start every spoken line with an em dash", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptLimitsEmojiToOne()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("at most one emoji", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptRequestsChapterRecapInSummary()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("recapping what happened in this chapter", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SchemaRequiresSummaryField()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var schema = JsonSerializer.SerializeToDocument(client.LastRequest!)
+            .RootElement
+            .GetProperty("response_format")
+            .GetProperty("json_schema")
+            .GetProperty("schema");
+
+        Assert.Contains("summary", schema.GetProperty("required")
+            .EnumerateArray()
+            .Select(required => required.GetString()));
+        Assert.Equal("string", schema.GetProperty("properties")
+            .GetProperty("summary")
+            .GetProperty("type")
+            .GetString());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SummaryIsWrittenInTargetLanguageLevel()
+    {
+        var client = new RecordingMistralClient();
+        var generator = new StoryGenerator(client, "mistral-small-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("1 to 3 short sentences in Swedish", content);
+        Assert.Contains("learner's level", content);
     }
 
     [Fact]

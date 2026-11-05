@@ -8,13 +8,14 @@ public sealed class StoryGenerator : IStoryGenerator
     private const string StorySchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"additionalProperties\": false,\n" +
-        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\"],\n" +
+        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\"],\n" +
         "  \"properties\": {\n" +
         "    \"title\": { \"type\": \"string\" },\n" +
         "    \"story\": { \"type\": \"string\" },\n" +
         "    \"usedVocabulary\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
         "    \"usedGrammarPoints\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
-        "    \"potentiallyNewLanguage\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }\n" +
+        "    \"potentiallyNewLanguage\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
+        "    \"summary\": { \"type\": \"string\" }\n" +
         "  }\n" +
         "}";
 
@@ -54,10 +55,17 @@ public sealed class StoryGenerator : IStoryGenerator
         var constraints =
             "STRICT CONSTRAINTS: " +
             "1. Write at beginner level with short, simple sentences. " +
-            "2. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
-            "3. You may introduce AT MOST 3 words that are not in the supplied lists; " +
-            "list every such word in potentiallyNewLanguage. " +
-            "4. Do not claim an item was used unless it appears in the story.\n\n";
+            "2. Write the title in " + knowledge.TargetLanguage + " (never in another language), " +
+            "maximum 4 words, favouring words from the supplied vocabulary. " +
+            "3. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
+            "4. You may use AT MOST 3 words that are not in the supplied lists. " +
+            "Count them before answering: if you find more than 3, rewrite the chapter with simpler wording instead of answering. " +
+            "List every such word in potentiallyNewLanguage. " +
+            "5. If the chapter contains dialogue, start every spoken line with an em dash followed by a space, like a script (example: — Hej, säger Anna.). " +
+            "6. Include at most one emoji in the chapter. " +
+            "7. Do not claim an item was used unless it appears in the story. " +
+            "8. Write in the summary field 1 to 3 short sentences in " + knowledge.TargetLanguage + " " +
+            "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story.\n\n";
 
         var acquiredSection =
             acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }

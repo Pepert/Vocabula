@@ -123,6 +123,13 @@ public sealed class StoriesController : ControllerBase
                 .ToListAsync(cancellationToken);
             int nextChapterNumber = (maxChapter.Count == 0 ? 0 : maxChapter.Max()) + 1;
 
+            // The model recaps the chapter in the summary field so the next
+            // generation continues from a real recap; the truncation is only
+            // a fallback if the model ever returns an empty summary.
+            var summary = !string.IsNullOrWhiteSpace(story.Summary)
+                ? story.Summary
+                : story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story;
+
             // Create chapter
             var chapter = new Domain.StoryChapter
             {
@@ -130,13 +137,13 @@ public sealed class StoriesController : ControllerBase
                 StoryId = storyEntity.Id,
                 ChapterNumber = nextChapterNumber,
                 Content = story.Story,
-                ResultingSummary = story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story,
+                ResultingSummary = summary,
                 CreatedAt = DateTimeOffset.UtcNow
             };
             _dbContext.StoryChapters.Add(chapter);
 
             // Update story current summary
-            storyEntity.CurrentSummary = story.Story.Length > 200 ? story.Story[..200] + "..." : story.Story;
+            storyEntity.CurrentSummary = summary;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 

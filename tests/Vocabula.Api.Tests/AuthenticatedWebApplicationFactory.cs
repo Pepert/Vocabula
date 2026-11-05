@@ -41,7 +41,8 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
         "Hej! sade hon och log.",
         ["hej"],
         ["present tense"],
-        []);
+        [],
+        "Hon säger hej.");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
