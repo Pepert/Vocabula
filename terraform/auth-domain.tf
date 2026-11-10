@@ -48,6 +48,11 @@ resource "aws_cognito_user_pool_domain" "auth" {
   user_pool_id    = aws_cognito_user_pool.vocabula.id
   domain          = "auth.${var.domain_name}"
   certificate_arn = aws_acm_certificate_validation.auth.certificate_arn
+
+  # Cognito checks that the parent domain resolves before accepting the
+  # custom domain, so the apex record must exist first — terraform would
+  # otherwise create both in parallel and fail the check.
+  depends_on = [aws_route53_record.apex]
 }
 
 # Route 53 alias records pointing at the CloudFront distribution Cognito
