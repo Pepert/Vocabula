@@ -23,6 +23,9 @@ public sealed class StoryChapterConfiguration : IEntityTypeConfiguration<StoryCh
             .HasColumnName("chapter_number")
             .IsRequired();
 
+        builder.Property(c => c.Title)
+            .HasColumnName("title");
+
         builder.Property(c => c.Content)
             .HasColumnName("content")
             .IsRequired();

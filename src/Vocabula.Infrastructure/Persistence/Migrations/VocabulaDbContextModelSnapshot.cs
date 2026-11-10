@@ -17,7 +17,7 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -221,6 +221,10 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("StoryId")
                         .HasColumnType("uuid")
                         .HasColumnName("story_id");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
 
                     b.HasKey("Id");
 

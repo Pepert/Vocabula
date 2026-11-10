@@ -5,4 +5,5 @@ public sealed record GeneratedStory(
     string Story,
     IReadOnlyList<string> UsedVocabulary,
     IReadOnlyList<string> UsedGrammarPoints,
-    IReadOnlyList<string> PotentiallyNewLanguage);
+    IReadOnlyList<string> PotentiallyNewLanguage,
+    string Summary);
