@@ -13,3 +13,18 @@ provider "aws" {
     }
   }
 }
+
+# Aliased provider for the us-east-1 region: Cognito custom domains are
+# served by CloudFront, which only trusts certificates from us-east-1
+# (see auth-domain.tf).
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      project     = "vocabula"
+      environment = "prod"
+    }
+  }
+}

@@ -205,6 +205,26 @@ curl -H "Authorization: Bearer $TOKEN" http://$ALB/api/users/me
 The API validates tokens against the pool that Terraform wired into the
 task definition, so no configuration values are copied anywhere.
 
+## Cognito custom domain
+
+The hosted UI is additionally served on `https://auth.vocabula.dev`
+(`terraform/auth-domain.tf`). Cognito custom domains are CloudFront
+distributions, which only trust certificates issued in us-east-1 — the
+certificate lives there while the pool stays in eu-west-3. Creating the
+domain takes a while (up to ~60 minutes for the CloudFront distribution).
+
+After the first apply, the external identity providers must authorize the
+new redirect URI by hand in their respective consoles (the old prefixed
+domain `vocabula-prod.auth.eu-west-3.amazoncognito.com` keeps working in
+parallel, so nothing breaks during the transition):
+
+- **Google Cloud Console** → Credentials → the OAuth client →
+  Authorized redirect URIs: add `https://auth.vocabula.dev/oauth2/idpresponse`
+- **LinkedIn Developers** → the app → Auth → Redirect URLs: add
+  `https://auth.vocabula.dev/oauth2/idpresponse`
+
+The frontend then switches its `hostedUiDomain` to `https://auth.vocabula.dev`.
+
 ## Day-to-day operations
 
 - **Deploy a new version**: push a new image (`docker buildx build ... --push`),

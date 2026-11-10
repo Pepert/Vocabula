@@ -47,3 +47,8 @@ output "cognito_hosted_ui_domain" {
   description = "Cognito hosted UI domain (for the frontend's OAuth flows)."
   value       = aws_cognito_user_pool_domain.vocabula.domain
 }
+
+output "cognito_custom_domain_url" {
+  description = "Custom hosted UI domain served with the project's TLS certificate."
+  value       = "https://${aws_cognito_user_pool_domain.auth.domain}"
+}
