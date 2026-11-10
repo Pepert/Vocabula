@@ -96,18 +96,16 @@ public sealed class StoryGenerator : IStoryGenerator
 
             if (newWords.Count <= StoryWordChecker.MaxNewWordsPerChapter || rewrites >= MaxRewrites)
             {
-                // The computed list is the honest count for the cap; the
-                // words shown to the learner are the model's newWords
-                // claims, verified against the text: entries whose word is
-                // not actually in the story are dropped. Proper nouns are
-                // excluded by the prompt, so characters are never
-                // underlined as vocabulary.
-                var storyWords = new HashSet<string>(
-                    StoryWordChecker.Tokenize(story.Story),
-                    StringComparer.Ordinal);
+                // The displayed words are the model's newWords claims,
+                // intersected with the code's computed new-words set: a
+                // claim only survives if the word is really in the story
+                // AND outside the learner's known vocabulary (every word
+                // of a known phrase, the recap, the notebook batch).
+                var computed = new HashSet<string>(newWords, StringComparer.Ordinal);
 
                 var verified = story.NewWords
-                    .Where(entry => storyWords.Contains(entry.Word.ToLowerInvariant()))
+                    .Where(entry => computed.Contains(entry.Word.ToLowerInvariant()))
+                    .Select(entry => entry with { Kind = NewWordKinds.Ai })
                     .ToList();
 
                 return story with
@@ -151,8 +149,9 @@ public sealed class StoryGenerator : IStoryGenerator
             "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story. " +
             "9. Never list proper nouns (people's names, place names) in newWords or potentiallyNewLanguage — " +
             "they are not vocabulary to learn; reuse the same character names as earlier chapters. " +
-            "Every entry in newWords is a content word that appears in the story, with a short English " +
-            "definition a beginner can understand.\n\n";
+            "Every word of a supplied multi-word entry counts as known (knowing 'Vad heter du?' means 'heter' is known). " +
+            "Every entry in newWords is a content word that appears in the story and is not already known, " +
+            "with a short English definition a beginner can understand.\n\n";
 
         var acquiredSection =
             acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }

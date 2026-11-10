@@ -144,8 +144,8 @@ public sealed class StoriesController : ControllerBase
             };
             _dbContext.StoryChapters.Add(chapter);
 
-            // The words this chapter introduced, for the dotted-underline
-            // feature on the reading page.
+            // The words this chapter introduced (blue underline), for the
+            // dotted-underline feature on the reading page.
             var position = 0;
             foreach (var newWord in story.NewWords)
             {
@@ -155,6 +155,56 @@ public sealed class StoriesController : ControllerBase
                     ChapterId = chapter.Id,
                     Word = newWord.Word,
                     Definition = newWord.Definition,
+                    Kind = newWord.Kind ?? NewWordKinds.Ai,
+                    Position = position++
+                });
+            }
+
+            // Words the LEARNER'S NOTEBOOK taught earlier, appearing in the
+            // story for the first time: reinforcement, green underline, with
+            // the notebook's own translation. Only words never seen in any
+            // earlier chapter count as first appearance.
+            var earlierChapterContents = await _dbContext.StoryChapters
+                .Where(previous => previous.StoryId == storyEntity.Id)
+                .Select(previous => previous.Content)
+                .ToListAsync(cancellationToken);
+            var seenWords = new HashSet<string>(
+                earlierChapterContents.SelectMany(StoryWordChecker.Tokenize),
+                StringComparer.Ordinal);
+
+            var notebookTranslations = await _dbContext.VocabularyItems
+                .Where(item => item.LearningProfileId == learningProfile.Id && item.Translation != null)
+                .Select(item => new { item.Term, item.Translation })
+                .ToListAsync(cancellationToken);
+            var translationByWord = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var item in notebookTranslations)
+            {
+                foreach (var word in StoryWordChecker.Tokenize(item.Term))
+                {
+                    translationByWord.TryAdd(word, item.Translation!);
+                }
+            }
+
+            var underlinedWords = new HashSet<string>(
+                story.NewWords.Select(entry => entry.Word.ToLowerInvariant()),
+                StringComparer.Ordinal);
+            foreach (var word in StoryWordChecker.Tokenize(story.Story).Distinct())
+            {
+                if (!translationByWord.TryGetValue(word, out var translation) ||
+                    seenWords.Contains(word) ||
+                    StoryWordChecker.IsFunctionWord(word) ||
+                    underlinedWords.Contains(word))
+                {
+                    continue;
+                }
+
+                _dbContext.ChapterNewWords.Add(new Domain.ChapterNewWord
+                {
+                    Id = Guid.NewGuid(),
+                    ChapterId = chapter.Id,
+                    Word = word,
+                    Definition = translation,
+                    Kind = NewWordKinds.Extracted,
                     Position = position++
                 });
             }
@@ -214,7 +264,7 @@ public sealed class StoriesController : ControllerBase
         var newWords = await _dbContext.ChapterNewWords
             .Where(word => chapterIds.Contains(word.ChapterId))
             .OrderBy(word => word.Position)
-            .Select(word => new { word.ChapterId, word.Word, word.Definition })
+            .Select(word => new { word.ChapterId, word.Word, word.Definition, word.Kind })
             .ToListAsync(cancellationToken);
 
         var wordsByChapter = newWords
@@ -222,7 +272,7 @@ public sealed class StoriesController : ControllerBase
             .ToDictionary(
                 group => group.Key,
                 group => (IReadOnlyList<NewWordDefinition>)group
-                    .Select(word => new NewWordDefinition(word.Word, word.Definition))
+                    .Select(word => new NewWordDefinition(word.Word, word.Definition, word.Kind))
                     .ToList());
 
         var response = chapters

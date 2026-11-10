@@ -23,6 +23,10 @@ public sealed class ChapterNewWordConfiguration : IEntityTypeConfiguration<Chapt
             .HasColumnName("word")
             .IsRequired();
 
+        builder.Property(w => w.Kind)
+            .HasColumnName("kind")
+            .IsRequired();
+
         builder.Property(w => w.Definition)
             .HasColumnName("definition");
 

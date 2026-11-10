@@ -331,6 +331,7 @@ public sealed class StoryGeneratorTests
         var bananer = Assert.Single(story.NewWords);
         Assert.Equal("bananer", bananer.Word);
         Assert.Equal("bananas", bananer.Definition);
+        Assert.Equal(NewWordKinds.Ai, bananer.Kind); // story-introduced vocabulary
     }
 
     [Fact]
@@ -365,6 +366,34 @@ public sealed class StoryGeneratorTests
 
         Assert.Contains("Never list proper nouns", content);
         Assert.Contains("reuse the same character names", content);
+        Assert.Contains("Every word of a supplied multi-word entry counts as known", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DropsClaimsOfWordsInsideKnownPhrases()
+    {
+        // Knowing "Vad heter du?" means "heter" is known: the model may
+        // still claim it, but the word checker whitelists it and the
+        // claim is dropped from the words shown to the learner.
+        var client = new RecordingMistralClient();
+        client.Enqueue(new GeneratedStory(
+            "Vad heter du?",
+            "Vad heter du? Jag heter Erik!",
+            ["hej"],
+            [],
+            [],
+            "Erik frågar.",
+            [new NewWordDefinition("heter", "is called")]));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(
+            Knowledge,
+            previousStorySummary: null,
+            acquiredVocabulary: ["Vad heter du?"],
+            cancellationToken: default);
+
+        Assert.Equal(["erik"], story.PotentiallyNewLanguage);
+        Assert.Empty(story.NewWords);
     }
 
     [Fact]

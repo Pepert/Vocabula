@@ -82,6 +82,11 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("definition");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("kind");
+
                     b.Property<int>("Position")
                         .HasColumnType("integer")
                         .HasColumnName("position");

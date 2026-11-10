@@ -150,11 +150,22 @@ public sealed class StoryFlowTests
         {
             Assert.Equal("Hej", chapter.StoryTitle);
             Assert.Equal("Hej", chapter.Title); // each chapter carries its own title
-            // Words the chapter introduced, with definitions for tap-to-learn.
-            var newWord = Assert.Single(chapter.NewWords);
-            Assert.Equal("sade", newWord.Word);
-            Assert.Equal("said", newWord.Definition);
         });
+
+        // Chapter 1: the story-introduced word (ai) plus the notebook word
+        // appearing for the first time (extracted, using the notebook's
+        // translation). Order follows the Positions assigned at generation.
+        var first = chapters.Chapters[0].NewWords;
+        Assert.Equal(
+            [("sade", "said", "ai"), ("hej", "hello", "extracted")],
+            first.Select(word => (word.Word, word.Definition!, word.Kind!)).ToArray());
+
+        // Chapter 2: "hej" was already seen in chapter 1, so only the
+        // story-introduced word remains — first appearances only.
+        var second = chapters.Chapters[1].NewWords;
+        Assert.Equal(
+            [("sade", "said", "ai")],
+            second.Select(word => (word.Word, word.Definition!, word.Kind!)).ToArray());
     }
 
     private sealed record GenerateStub(int ChapterNumber);
@@ -169,7 +180,7 @@ public sealed class StoryFlowTests
         NewWordStub[] NewWords,
         DateTimeOffset CreatedAt);
 
-    private sealed record NewWordStub(string Word, string? Definition);
+    private sealed record NewWordStub(string Word, string? Definition, string? Kind);
 
     private sealed record HttpValidationProblemDetailsStub(string? Title);
 }
