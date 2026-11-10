@@ -61,3 +61,19 @@ resource "aws_route53_record" "api" {
     evaluate_target_health = true
   }
 }
+
+# Cognito refuses to create a custom domain unless the parent domain
+# resolves to an A record ("Custom domain is not a valid subdomain").
+# Point the apex at the load balancer; a future landing page can take
+# this record over.
+resource "aws_route53_record" "apex" {
+  name    = var.domain_name
+  type    = "A"
+  zone_id = aws_route53_zone.vocabula.zone_id
+
+  alias {
+    name                   = aws_lb.vocabula.dns_name
+    zone_id                = aws_lb.vocabula.zone_id
+    evaluate_target_health = true
+  }
+}
