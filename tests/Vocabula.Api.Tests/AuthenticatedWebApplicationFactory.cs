@@ -43,7 +43,8 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
         ["present tense"],
         [],
         "Hon säger hej.",
-        [new NewWordDefinition("sade", "said")]);
+        [new NewWordDefinition("sade", "said")],
+        [new WordGloss("hej", "hello (word-level gloss)")]);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

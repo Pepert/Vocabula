@@ -21,6 +21,7 @@ public sealed class NotebookProcessingResultJsonTests
                 ["present tense"],
                 [],
                 "De säger hej.",
+                [],
                 []));
 
         var json = NotebookProcessingResultJson.Serialize(result);

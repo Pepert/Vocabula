@@ -153,11 +153,12 @@ public sealed class StoryFlowTests
         });
 
         // Chapter 1: the story-introduced word (ai) plus the notebook word
-        // appearing for the first time (extracted, using the notebook's
-        // translation). Order follows the Positions assigned at generation.
+        // appearing for the first time (extracted). The green word's
+        // definition is the model's word-level gloss, which wins over the
+        // notebook's own translation.
         var first = chapters.Chapters[0].NewWords;
         Assert.Equal(
-            [("sade", "said", "ai"), ("hej", "hello", "extracted")],
+            [("sade", "said", "ai"), ("hej", "hello (word-level gloss)", "extracted")],
             first.Select(word => (word.Word, word.Definition!, word.Kind!)).ToArray());
 
         // Chapter 2: "hej" was already seen in chapter 1, so only the

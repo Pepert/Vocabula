@@ -8,7 +8,7 @@ public sealed class StoryGenerator : IStoryGenerator
     private const string StorySchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"additionalProperties\": false,\n" +
-        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\", \"newWords\"],\n" +
+        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\", \"newWords\", \"wordGlosses\"],\n" +
         "  \"properties\": {\n" +
         "    \"title\": { \"type\": \"string\" },\n" +
         "    \"story\": { \"type\": \"string\" },\n" +
@@ -25,6 +25,18 @@ public sealed class StoryGenerator : IStoryGenerator
         "        \"properties\": {\n" +
         "          \"word\": { \"type\": \"string\" },\n" +
         "          \"definition\": { \"type\": \"string\" }\n" +
+        "        }\n" +
+        "      }\n" +
+        "    },\n" +
+        "    \"wordGlosses\": {\n" +
+        "      \"type\": \"array\",\n" +
+        "      \"items\": {\n" +
+        "        \"type\": \"object\",\n" +
+        "        \"additionalProperties\": false,\n" +
+        "        \"required\": [\"word\", \"gloss\"],\n" +
+        "        \"properties\": {\n" +
+        "          \"word\": { \"type\": \"string\" },\n" +
+        "          \"gloss\": { \"type\": \"string\" }\n" +
         "        }\n" +
         "      }\n" +
         "    }\n" +
@@ -150,8 +162,13 @@ public sealed class StoryGenerator : IStoryGenerator
             "9. Never list proper nouns (people's names, place names) in newWords or potentiallyNewLanguage — " +
             "they are not vocabulary to learn; reuse the same character names as earlier chapters. " +
             "Every word of a supplied multi-word entry counts as known (knowing 'Vad heter du?' means 'heter' is known). " +
+            "There are no unimportant words: every word of the story that is not in the supplied lists and not a proper noun " +
+            "must appear in potentiallyNewLanguage and newWords, with no exception — even words that look basic or international. " +
             "Every entry in newWords is a content word that appears in the story and is not already known, " +
-            "with a short English definition a beginner can understand.\n\n";
+            "with a short English definition a beginner can understand. " +
+            "10. In wordGlosses, give a short word-level English gloss for EVERY supplied-vocabulary word that appears in the story " +
+            "(example: bor -> live; Solna -> Solna, an area of Stockholm). " +
+            "The gloss is for the single word, never the notebook's full phrase translation.\n\n";
 
         var acquiredSection =
             acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }

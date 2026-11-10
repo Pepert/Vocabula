@@ -172,17 +172,41 @@ public sealed class StoriesController : ControllerBase
                 earlierChapterContents.SelectMany(StoryWordChecker.Tokenize),
                 StringComparer.Ordinal);
 
-            var notebookTranslations = await _dbContext.VocabularyItems
-                .Where(item => item.LearningProfileId == learningProfile.Id && item.Translation != null)
+            var notebookItems = await _dbContext.VocabularyItems
+                .Where(item => item.LearningProfileId == learningProfile.Id)
                 .Select(item => new { item.Term, item.Translation })
                 .ToListAsync(cancellationToken);
+
+            // Membership: every word of every notebook term, translation or
+            // not ("bor" and "solna" are notebook words via "Jag bor i Solna").
+            var notebookWords = new HashSet<string>(StringComparer.Ordinal);
+            // Word -> translation. Standalone entries win over phrases
+            // ("bra" -> its own entry, not the "Inte så bra" meaning).
             var translationByWord = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var item in notebookTranslations)
+            foreach (var item in notebookItems)
             {
+                var words = StoryWordChecker.Tokenize(item.Term).ToList();
+                if (words.Count == 1 && item.Translation != null)
+                {
+                    translationByWord[item.Term] = item.Translation;
+                }
+                notebookWords.UnionWith(words);
+            }
+            foreach (var item in notebookItems)
+            {
+                if (item.Translation == null) continue;
                 foreach (var word in StoryWordChecker.Tokenize(item.Term))
                 {
-                    translationByWord.TryAdd(word, item.Translation!);
+                    translationByWord.TryAdd(word, item.Translation);
                 }
+            }
+
+            // Word-level glosses from the model beat phrase translations
+            // ("bor" -> "live" rather than "I live in Solna").
+            var glossByWord = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var gloss in story.WordGlosses)
+            {
+                glossByWord.TryAdd(gloss.Word.ToLowerInvariant(), gloss.Gloss);
             }
 
             var underlinedWords = new HashSet<string>(
@@ -190,7 +214,15 @@ public sealed class StoriesController : ControllerBase
                 StringComparer.Ordinal);
             foreach (var word in StoryWordChecker.Tokenize(story.Story).Distinct())
             {
-                if (!translationByWord.TryGetValue(word, out var translation) ||
+                // Nothing to show without a definition.
+                var definition = glossByWord.TryGetValue(word, out var gloss)
+                    ? gloss
+                    : translationByWord.TryGetValue(word, out var translation)
+                        ? translation
+                        : null;
+
+                if (!notebookWords.Contains(word) ||
+                    definition == null ||
                     seenWords.Contains(word) ||
                     StoryWordChecker.IsFunctionWord(word) ||
                     underlinedWords.Contains(word))
@@ -203,7 +235,7 @@ public sealed class StoriesController : ControllerBase
                     Id = Guid.NewGuid(),
                     ChapterId = chapter.Id,
                     Word = word,
-                    Definition = translation,
+                    Definition = definition,
                     Kind = NewWordKinds.Extracted,
                     Position = position++
                 });

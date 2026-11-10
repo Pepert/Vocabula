@@ -46,7 +46,8 @@ public sealed class StoryGeneratorTests
         [],
         [],
         "Hon säger hej.",
-        [new NewWordDefinition("sade", "said")]);
+        [new NewWordDefinition("sade", "said")],
+        [new WordGloss("sade", "said (past of säga)")]);
 
     // "sade" is the only word outside the supplied "hej" vocabulary,
     // so this story passes the code-enforced word cap without a rewrite.
@@ -57,7 +58,8 @@ public sealed class StoryGeneratorTests
         [],
         [],
         "Han äter banan.",
-        [new NewWordDefinition("klockan", "clock")]);
+        [new NewWordDefinition("klockan", "clock")],
+        []);
 
     [Fact]
     public async Task GenerateAsync_WithPreviousSummary_PromptsForContinuation()
@@ -320,7 +322,8 @@ public sealed class StoryGeneratorTests
             [
                 new NewWordDefinition("bananer", "bananas"),
                 new NewWordDefinition("fiende", "enemy") // fantasy claim: not in the story
-            ]));
+            ],
+            [new WordGloss("katten", "the cat")]));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
@@ -367,6 +370,34 @@ public sealed class StoryGeneratorTests
         Assert.Contains("Never list proper nouns", content);
         Assert.Contains("reuse the same character names", content);
         Assert.Contains("Every word of a supplied multi-word entry counts as known", content);
+        // Claims must be exhaustive: no unclaimed unknown words.
+        Assert.Contains("There are no unimportant words", content);
+        // Word-level glosses for notebook vocabulary beat phrase translations.
+        Assert.Contains("word-level English gloss", content);
+        Assert.Contains("never the notebook's full phrase translation", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SchemaRequiresWordGlosses()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
+            .RootElement
+            .GetProperty("response_format")
+            .GetProperty("json_schema")
+            .GetProperty("schema");
+
+        Assert.Contains("wordGlosses", schema.GetProperty("required")
+            .EnumerateArray()
+            .Select(required => required.GetString()));
+        var glossItem = schema.GetProperty("properties").GetProperty("wordGlosses").GetProperty("items");
+        Assert.Equal("string", glossItem.GetProperty("properties").GetProperty("word").GetProperty("type").GetString());
+        Assert.Equal("string", glossItem.GetProperty("properties").GetProperty("gloss").GetProperty("type").GetString());
     }
 
     [Fact]
@@ -383,7 +414,8 @@ public sealed class StoryGeneratorTests
             [],
             [],
             "Erik frågar.",
-            [new NewWordDefinition("heter", "is called")]));
+            [new NewWordDefinition("heter", "is called")],
+            []));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         var story = await generator.GenerateAsync(
@@ -407,7 +439,8 @@ public sealed class StoryGeneratorTests
             [],
             [],
             "Solen skiner.",
-            [new NewWordDefinition("Solen", "the sun")]));
+            [new NewWordDefinition("Solen", "the sun")],
+            [new WordGloss("solen", "the sun")]));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
         var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
