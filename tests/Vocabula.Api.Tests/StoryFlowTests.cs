@@ -121,13 +121,21 @@ public sealed class StoryFlowTests
             .Content.ReadFromJsonAsync<NotebookKnowledge>(JsonOptions);
         Assert.NotNull(knowledge);
 
+        var chapterNumbers = new List<int>();
         for (var i = 0; i < 2; i++)
         {
             using var generate = await client.PostAsync(
                 "/api/stories/generate",
                 AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge));
             Assert.Equal(HttpStatusCode.OK, generate.StatusCode);
+
+            // The generate response carries the new chapter's number so the
+            // client can redirect without re-fetching the chapter list.
+            var generated = await generate.Content.ReadFromJsonAsync<GenerateStub>(JsonOptions);
+            Assert.NotNull(generated);
+            chapterNumbers.Add(generated.ChapterNumber);
         }
+        Assert.Equal([1, 2], chapterNumbers);
 
         using var chaptersResponse = await client.GetAsync("/api/stories/chapters");
 
@@ -142,12 +150,26 @@ public sealed class StoryFlowTests
         {
             Assert.Equal("Hej", chapter.StoryTitle);
             Assert.Equal("Hej", chapter.Title); // each chapter carries its own title
+            // Words the chapter introduced, with definitions for tap-to-learn.
+            var newWord = Assert.Single(chapter.NewWords);
+            Assert.Equal("sade", newWord.Word);
+            Assert.Equal("said", newWord.Definition);
         });
     }
 
+    private sealed record GenerateStub(int ChapterNumber);
+
     private sealed record ChaptersStub(ChapterStub[] Chapters);
 
-    private sealed record ChapterStub(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
+    private sealed record ChapterStub(
+        int ChapterNumber,
+        string StoryTitle,
+        string Title,
+        string Content,
+        NewWordStub[] NewWords,
+        DateTimeOffset CreatedAt);
+
+    private sealed record NewWordStub(string Word, string? Definition);
 
     private sealed record HttpValidationProblemDetailsStub(string? Title);
 }

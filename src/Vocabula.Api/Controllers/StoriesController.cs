@@ -144,12 +144,29 @@ public sealed class StoriesController : ControllerBase
             };
             _dbContext.StoryChapters.Add(chapter);
 
+            // The words this chapter introduced, for the dotted-underline
+            // feature on the reading page.
+            var position = 0;
+            foreach (var newWord in story.NewWords)
+            {
+                _dbContext.ChapterNewWords.Add(new Domain.ChapterNewWord
+                {
+                    Id = Guid.NewGuid(),
+                    ChapterId = chapter.Id,
+                    Word = newWord.Word,
+                    Definition = newWord.Definition,
+                    Position = position++
+                });
+            }
+
             // Update story current summary
             storyEntity.CurrentSummary = summary;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return Ok(story);
+            // The chapter number lets the client redirect straight to the
+            // new chapter instead of re-fetching the whole list.
+            return Ok(new GenerateChapterResponse(nextChapterNumber, story));
         }
         catch (HttpRequestException ex) when (ex.StatusCode != null && IsTransientError(ex.StatusCode.Value))
         {
@@ -186,15 +203,39 @@ public sealed class StoriesController : ControllerBase
             join chapter in _dbContext.StoryChapters on story.Id equals chapter.StoryId
             where profile.UserId == userId && profile.LanguageCode == TestLanguageCode
             orderby chapter.ChapterNumber
-            select new StoryChapterResponse(
-                chapter.ChapterNumber,
-                story.Title,
-                chapter.Title ?? story.Title,
-                chapter.Content,
-                chapter.CreatedAt)
+            select new
+            {
+                Chapter = chapter,
+                StoryTitle = story.Title
+            }
         ).ToListAsync(cancellationToken);
 
-        return Ok(new StoryChaptersResponse(chapters));
+        var chapterIds = chapters.Select(c => c.Chapter.Id).ToList();
+        var newWords = await _dbContext.ChapterNewWords
+            .Where(word => chapterIds.Contains(word.ChapterId))
+            .OrderBy(word => word.Position)
+            .Select(word => new { word.ChapterId, word.Word, word.Definition })
+            .ToListAsync(cancellationToken);
+
+        var wordsByChapter = newWords
+            .GroupBy(word => word.ChapterId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<NewWordDefinition>)group
+                    .Select(word => new NewWordDefinition(word.Word, word.Definition))
+                    .ToList());
+
+        var response = chapters
+            .Select(c => new StoryChapterResponse(
+                c.Chapter.ChapterNumber,
+                c.StoryTitle,
+                c.Chapter.Title ?? c.StoryTitle,
+                c.Chapter.Content,
+                wordsByChapter.TryGetValue(c.Chapter.Id, out var newWords) ? newWords : [],
+                c.Chapter.CreatedAt))
+            .ToList();
+
+        return Ok(new StoryChaptersResponse(response));
     }
 
     private static bool IsTransientError(HttpStatusCode? statusCode)
@@ -212,7 +253,15 @@ public sealed class StoriesController : ControllerBase
     }
 }
 
-public sealed record StoryChapterResponse(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
+public sealed record GenerateChapterResponse(int ChapterNumber, GeneratedStory Story);
+
+public sealed record StoryChapterResponse(
+    int ChapterNumber,
+    string StoryTitle,
+    string Title,
+    string Content,
+    IReadOnlyList<NewWordDefinition> NewWords,
+    DateTimeOffset CreatedAt);
 
 public sealed record StoryChaptersResponse(IReadOnlyList<StoryChapterResponse> Chapters);
 

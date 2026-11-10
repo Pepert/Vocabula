@@ -67,6 +67,38 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                     b.ToTable("app_users", (string)null);
                 });
 
+            modelBuilder.Entity("Vocabula.Core.Domain.ChapterNewWord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ChapterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("chapter_id");
+
+                    b.Property<string>("Definition")
+                        .HasColumnType("text")
+                        .HasColumnName("definition");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Word")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("word");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChapterId")
+                        .HasDatabaseName("ix_chapter_new_words_chapter_id");
+
+                    b.ToTable("chapter_new_words", (string)null);
+                });
+
             modelBuilder.Entity("Vocabula.Core.Domain.GrammarPoint", b =>
                 {
                     b.Property<Guid>("Id")
@@ -291,6 +323,18 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                     b.ToTable("vocabulary_items", (string)null);
                 });
 
+            modelBuilder.Entity("Vocabula.Core.Domain.ChapterNewWord", b =>
+                {
+                    b.HasOne("Vocabula.Core.Domain.StoryChapter", "Chapter")
+                        .WithMany("NewWords")
+                        .HasForeignKey("ChapterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_chapter_new_words_story_chapters");
+
+                    b.Navigation("Chapter");
+                });
+
             modelBuilder.Entity("Vocabula.Core.Domain.GrammarPoint", b =>
                 {
                     b.HasOne("Vocabula.Core.Domain.LearningProfile", "LearningProfile")
@@ -382,6 +426,11 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Vocabula.Core.Domain.Story", b =>
                 {
                     b.Navigation("Chapters");
+                });
+
+            modelBuilder.Entity("Vocabula.Core.Domain.StoryChapter", b =>
+                {
+                    b.Navigation("NewWords");
                 });
 #pragma warning restore 612, 618
         }

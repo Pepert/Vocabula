@@ -8,14 +8,26 @@ public sealed class StoryGenerator : IStoryGenerator
     private const string StorySchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"additionalProperties\": false,\n" +
-        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\"],\n" +
+        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\", \"newWords\"],\n" +
         "  \"properties\": {\n" +
         "    \"title\": { \"type\": \"string\" },\n" +
         "    \"story\": { \"type\": \"string\" },\n" +
         "    \"usedVocabulary\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
         "    \"usedGrammarPoints\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
         "    \"potentiallyNewLanguage\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
-        "    \"summary\": { \"type\": \"string\" }\n" +
+        "    \"summary\": { \"type\": \"string\" },\n" +
+        "    \"newWords\": {\n" +
+        "      \"type\": \"array\",\n" +
+        "      \"items\": {\n" +
+        "        \"type\": \"object\",\n" +
+        "        \"additionalProperties\": false,\n" +
+        "        \"required\": [\"word\", \"definition\"],\n" +
+        "        \"properties\": {\n" +
+        "          \"word\": { \"type\": \"string\" },\n" +
+        "          \"definition\": { \"type\": \"string\" }\n" +
+        "        }\n" +
+        "      }\n" +
+        "    }\n" +
         "  }\n" +
         "}";
 
@@ -81,9 +93,30 @@ public sealed class StoryGenerator : IStoryGenerator
 
             if (newWords.Count <= StoryWordChecker.MaxNewWordsPerChapter || rewrites >= MaxRewrites)
             {
-                // The computed list is authoritative: report what the code
-                // found, not what the model claims.
-                return story with { PotentiallyNewLanguage = newWords };
+                // The computed word list is authoritative: report what the
+                // code found, not what the model claims. Definitions come
+                // from the model's newWords entries, matched by word; a
+                // missing definition stays null (the frontend shows a
+                // fallback) rather than trusting claims for other words.
+                var definitions = new Dictionary<string, string?>(StringComparer.Ordinal);
+                foreach (var entry in story.NewWords)
+                {
+                    definitions.TryAdd(entry.Word.ToLowerInvariant(), entry.Definition);
+                }
+
+                var aligned = newWords
+                    .Select(word => new NewWordDefinition(
+                        word,
+                        definitions.TryGetValue(word.ToLowerInvariant(), out var definition)
+                            ? definition
+                            : null))
+                    .ToList();
+
+                return story with
+                {
+                    PotentiallyNewLanguage = newWords,
+                    NewWords = aligned
+                };
             }
 
             rewrites++;
@@ -111,7 +144,8 @@ public sealed class StoryGenerator : IStoryGenerator
             "3. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
             "4. You may use AT MOST 3 words that are not in the supplied lists. " +
             "Count them before answering: if you find more than 3, rewrite the chapter with simpler wording instead of answering. " +
-            "List every such word in potentiallyNewLanguage. " +
+            "List every such word in potentiallyNewLanguage, and give each of them an entry in newWords " +
+            "with a short English definition a beginner can understand. " +
             "5. If the chapter contains dialogue, put every spoken line on its own line, " +
             "starting with an em dash followed by a space (example: — Hej, säger Anna.). " +
             "6. Include at most one emoji in the chapter. " +

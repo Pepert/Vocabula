@@ -16,4 +16,7 @@ public sealed class StoryChapter
         get => _story;
         set => _story = value;
     }
+
+    private readonly List<ChapterNewWord> _newWords = [];
+    public IReadOnlyCollection<ChapterNewWord> NewWords => _newWords;
 }

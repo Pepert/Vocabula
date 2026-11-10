@@ -17,6 +17,7 @@ public sealed class VocabulaDbContext : DbContext
     public DbSet<GrammarPoint> GrammarPoints { get; set; } = null!;
     public DbSet<Story> Stories { get; set; } = null!;
     public DbSet<StoryChapter> StoryChapters { get; set; } = null!;
+    public DbSet<ChapterNewWord> ChapterNewWords { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
