@@ -68,7 +68,19 @@ public static class StoryWordChecker
         return newWords;
     }
 
-    private static IEnumerable<string> Tokenize(string text)
+    /// <summary>True for the basic function words any beginner sentence
+    /// needs; they are scaffolding, never highlighted vocabulary.</summary>
+    public static bool IsFunctionWord(string word)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(word);
+        return FunctionWords.Contains(word.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// Words of the text, lowercased, in order: letter runs split on
+    /// everything else. Handles Swedish characters (åäö) via Unicode.
+    /// </summary>
+    public static IEnumerable<string> Tokenize(string text)
     {
         var current = new StringBuilder();
         foreach (var character in text.ToLowerInvariant())

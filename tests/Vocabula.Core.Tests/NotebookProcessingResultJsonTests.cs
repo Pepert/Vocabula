@@ -20,7 +20,9 @@ public sealed class NotebookProcessingResultJsonTests
                 ["hej"],
                 ["present tense"],
                 [],
-                "De säger hej."));
+                "De säger hej.",
+                [],
+                []));
 
         var json = NotebookProcessingResultJson.Serialize(result);
 

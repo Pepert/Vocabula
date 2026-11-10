@@ -121,13 +121,21 @@ public sealed class StoryFlowTests
             .Content.ReadFromJsonAsync<NotebookKnowledge>(JsonOptions);
         Assert.NotNull(knowledge);
 
+        var chapterNumbers = new List<int>();
         for (var i = 0; i < 2; i++)
         {
             using var generate = await client.PostAsync(
                 "/api/stories/generate",
                 AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge));
             Assert.Equal(HttpStatusCode.OK, generate.StatusCode);
+
+            // The generate response carries the new chapter's number so the
+            // client can redirect without re-fetching the chapter list.
+            var generated = await generate.Content.ReadFromJsonAsync<GenerateStub>(JsonOptions);
+            Assert.NotNull(generated);
+            chapterNumbers.Add(generated.ChapterNumber);
         }
+        Assert.Equal([1, 2], chapterNumbers);
 
         using var chaptersResponse = await client.GetAsync("/api/stories/chapters");
 
@@ -143,11 +151,37 @@ public sealed class StoryFlowTests
             Assert.Equal("Hej", chapter.StoryTitle);
             Assert.Equal("Hej", chapter.Title); // each chapter carries its own title
         });
+
+        // Chapter 1: the story-introduced word (ai) plus the notebook word
+        // appearing for the first time (extracted). The green word's
+        // definition is the model's word-level gloss, which wins over the
+        // notebook's own translation.
+        var first = chapters.Chapters[0].NewWords;
+        Assert.Equal(
+            [("sade", "said", "ai"), ("hej", "hello (word-level gloss)", "extracted")],
+            first.Select(word => (word.Word, word.Definition!, word.Kind!)).ToArray());
+
+        // Chapter 2: "hej" was already seen in chapter 1, so only the
+        // story-introduced word remains — first appearances only.
+        var second = chapters.Chapters[1].NewWords;
+        Assert.Equal(
+            [("sade", "said", "ai")],
+            second.Select(word => (word.Word, word.Definition!, word.Kind!)).ToArray());
     }
+
+    private sealed record GenerateStub(int ChapterNumber);
 
     private sealed record ChaptersStub(ChapterStub[] Chapters);
 
-    private sealed record ChapterStub(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
+    private sealed record ChapterStub(
+        int ChapterNumber,
+        string StoryTitle,
+        string Title,
+        string Content,
+        NewWordStub[] NewWords,
+        DateTimeOffset CreatedAt);
+
+    private sealed record NewWordStub(string Word, string? Definition, string? Kind);
 
     private sealed record HttpValidationProblemDetailsStub(string? Title);
 }

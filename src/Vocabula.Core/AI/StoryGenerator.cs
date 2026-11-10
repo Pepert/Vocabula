@@ -8,14 +8,38 @@ public sealed class StoryGenerator : IStoryGenerator
     private const string StorySchema = "{\n" +
         "  \"type\": \"object\",\n" +
         "  \"additionalProperties\": false,\n" +
-        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\"],\n" +
+        "  \"required\": [\"title\", \"story\", \"usedVocabulary\", \"usedGrammarPoints\", \"potentiallyNewLanguage\", \"summary\", \"newWords\", \"wordGlosses\"],\n" +
         "  \"properties\": {\n" +
         "    \"title\": { \"type\": \"string\" },\n" +
         "    \"story\": { \"type\": \"string\" },\n" +
         "    \"usedVocabulary\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
         "    \"usedGrammarPoints\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
         "    \"potentiallyNewLanguage\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n" +
-        "    \"summary\": { \"type\": \"string\" }\n" +
+        "    \"summary\": { \"type\": \"string\" },\n" +
+        "    \"newWords\": {\n" +
+        "      \"type\": \"array\",\n" +
+        "      \"items\": {\n" +
+        "        \"type\": \"object\",\n" +
+        "        \"additionalProperties\": false,\n" +
+        "        \"required\": [\"word\", \"definition\"],\n" +
+        "        \"properties\": {\n" +
+        "          \"word\": { \"type\": \"string\" },\n" +
+        "          \"definition\": { \"type\": \"string\" }\n" +
+        "        }\n" +
+        "      }\n" +
+        "    },\n" +
+        "    \"wordGlosses\": {\n" +
+        "      \"type\": \"array\",\n" +
+        "      \"items\": {\n" +
+        "        \"type\": \"object\",\n" +
+        "        \"additionalProperties\": false,\n" +
+        "        \"required\": [\"word\", \"gloss\"],\n" +
+        "        \"properties\": {\n" +
+        "          \"word\": { \"type\": \"string\" },\n" +
+        "          \"gloss\": { \"type\": \"string\" }\n" +
+        "        }\n" +
+        "      }\n" +
+        "    }\n" +
         "  }\n" +
         "}";
 
@@ -53,7 +77,10 @@ public sealed class StoryGenerator : IStoryGenerator
         ArgumentNullException.ThrowIfNull(knowledge);
 
         var knowledgeJson = JsonSerializer.Serialize(knowledge, JsonOptions);
-        var allowedTerms = CollectAllowedTerms(knowledge, acquiredVocabulary, acquiredGrammar);
+        // The recap of the previous chapter whitelists its words (character
+        // names included): they were already presented to the learner, so
+        // they neither count against the cap nor deserve underlines.
+        var allowedTerms = CollectAllowedTerms(knowledge, acquiredVocabulary, acquiredGrammar, previousStorySummary);
 
         var messages = new List<object>
         {
@@ -81,9 +108,23 @@ public sealed class StoryGenerator : IStoryGenerator
 
             if (newWords.Count <= StoryWordChecker.MaxNewWordsPerChapter || rewrites >= MaxRewrites)
             {
-                // The computed list is authoritative: report what the code
-                // found, not what the model claims.
-                return story with { PotentiallyNewLanguage = newWords };
+                // The displayed words are the model's newWords claims,
+                // intersected with the code's computed new-words set: a
+                // claim only survives if the word is really in the story
+                // AND outside the learner's known vocabulary (every word
+                // of a known phrase, the recap, the notebook batch).
+                var computed = new HashSet<string>(newWords, StringComparer.Ordinal);
+
+                var verified = story.NewWords
+                    .Where(entry => computed.Contains(entry.Word.ToLowerInvariant()))
+                    .Select(entry => entry with { Kind = NewWordKinds.Ai })
+                    .ToList();
+
+                return story with
+                {
+                    PotentiallyNewLanguage = newWords,
+                    NewWords = verified
+                };
             }
 
             rewrites++;
@@ -117,7 +158,17 @@ public sealed class StoryGenerator : IStoryGenerator
             "6. Include at most one emoji in the chapter. " +
             "7. Do not claim an item was used unless it appears in the story. " +
             "8. Write in the summary field 1 to 3 short sentences in " + knowledge.TargetLanguage + " " +
-            "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story.\n\n";
+            "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story. " +
+            "9. Never list proper nouns (people's names, place names) in newWords or potentiallyNewLanguage — " +
+            "they are not vocabulary to learn; reuse the same character names as earlier chapters. " +
+            "Every word of a supplied multi-word entry counts as known (knowing 'Vad heter du?' means 'heter' is known). " +
+            "There are no unimportant words: every word of the story that is not in the supplied lists and not a proper noun " +
+            "must appear in potentiallyNewLanguage and newWords, with no exception — even words that look basic or international. " +
+            "Every entry in newWords is a content word that appears in the story and is not already known, " +
+            "with a short English definition a beginner can understand. " +
+            "10. In wordGlosses, give a short word-level English gloss for EVERY supplied-vocabulary word that appears in the story " +
+            "(example: bor -> live; Solna -> Solna, an area of Stockholm). " +
+            "The gloss is for the single word, never the notebook's full phrase translation.\n\n";
 
         var acquiredSection =
             acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }
@@ -148,7 +199,8 @@ public sealed class StoryGenerator : IStoryGenerator
     private static IEnumerable<string> CollectAllowedTerms(
         NotebookKnowledge knowledge,
         IReadOnlyList<string>? acquiredVocabulary,
-        IReadOnlyList<string>? acquiredGrammar)
+        IReadOnlyList<string>? acquiredGrammar,
+        string? previousStorySummary)
     {
         foreach (var term in acquiredVocabulary ?? [])
         {
@@ -158,6 +210,14 @@ public sealed class StoryGenerator : IStoryGenerator
         foreach (var grammar in acquiredGrammar ?? [])
         {
             yield return grammar;
+        }
+
+        // Words the recap mentions were presented in earlier chapters
+        // (character names especially): FindNewWords tokenizes each
+        // allowed term, so a whole sentence whitelists its words.
+        if (!string.IsNullOrWhiteSpace(previousStorySummary))
+        {
+            yield return previousStorySummary;
         }
 
         foreach (var entry in knowledge.Vocabulary)

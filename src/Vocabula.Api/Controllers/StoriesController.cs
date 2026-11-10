@@ -144,12 +144,111 @@ public sealed class StoriesController : ControllerBase
             };
             _dbContext.StoryChapters.Add(chapter);
 
+            // The words this chapter introduced (blue underline), for the
+            // dotted-underline feature on the reading page.
+            var position = 0;
+            foreach (var newWord in story.NewWords)
+            {
+                _dbContext.ChapterNewWords.Add(new Domain.ChapterNewWord
+                {
+                    Id = Guid.NewGuid(),
+                    ChapterId = chapter.Id,
+                    Word = newWord.Word,
+                    Definition = newWord.Definition,
+                    Kind = newWord.Kind ?? NewWordKinds.Ai,
+                    Position = position++
+                });
+            }
+
+            // Words the LEARNER'S NOTEBOOK taught earlier, appearing in the
+            // story for the first time: reinforcement, green underline, with
+            // the notebook's own translation. Only words never seen in any
+            // earlier chapter count as first appearance.
+            var earlierChapterContents = await _dbContext.StoryChapters
+                .Where(previous => previous.StoryId == storyEntity.Id)
+                .Select(previous => previous.Content)
+                .ToListAsync(cancellationToken);
+            var seenWords = new HashSet<string>(
+                earlierChapterContents.SelectMany(StoryWordChecker.Tokenize),
+                StringComparer.Ordinal);
+
+            var notebookItems = await _dbContext.VocabularyItems
+                .Where(item => item.LearningProfileId == learningProfile.Id)
+                .Select(item => new { item.Term, item.Translation })
+                .ToListAsync(cancellationToken);
+
+            // Membership: every word of every notebook term, translation or
+            // not ("bor" and "solna" are notebook words via "Jag bor i Solna").
+            var notebookWords = new HashSet<string>(StringComparer.Ordinal);
+            // Word -> translation. Standalone entries win over phrases
+            // ("bra" -> its own entry, not the "Inte så bra" meaning).
+            var translationByWord = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var item in notebookItems)
+            {
+                var words = StoryWordChecker.Tokenize(item.Term).ToList();
+                if (words.Count == 1 && item.Translation != null)
+                {
+                    translationByWord[item.Term] = item.Translation;
+                }
+                notebookWords.UnionWith(words);
+            }
+            foreach (var item in notebookItems)
+            {
+                if (item.Translation == null) continue;
+                foreach (var word in StoryWordChecker.Tokenize(item.Term))
+                {
+                    translationByWord.TryAdd(word, item.Translation);
+                }
+            }
+
+            // Word-level glosses from the model beat phrase translations
+            // ("bor" -> "live" rather than "I live in Solna").
+            var glossByWord = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var gloss in story.WordGlosses)
+            {
+                glossByWord.TryAdd(gloss.Word.ToLowerInvariant(), gloss.Gloss);
+            }
+
+            var underlinedWords = new HashSet<string>(
+                story.NewWords.Select(entry => entry.Word.ToLowerInvariant()),
+                StringComparer.Ordinal);
+            foreach (var word in StoryWordChecker.Tokenize(story.Story).Distinct())
+            {
+                // Nothing to show without a definition.
+                var definition = glossByWord.TryGetValue(word, out var gloss)
+                    ? gloss
+                    : translationByWord.TryGetValue(word, out var translation)
+                        ? translation
+                        : null;
+
+                if (!notebookWords.Contains(word) ||
+                    definition == null ||
+                    seenWords.Contains(word) ||
+                    StoryWordChecker.IsFunctionWord(word) ||
+                    underlinedWords.Contains(word))
+                {
+                    continue;
+                }
+
+                _dbContext.ChapterNewWords.Add(new Domain.ChapterNewWord
+                {
+                    Id = Guid.NewGuid(),
+                    ChapterId = chapter.Id,
+                    Word = word,
+                    Definition = definition,
+                    Kind = NewWordKinds.Extracted,
+                    Position = position++
+                });
+            }
+
             // Update story current summary
             storyEntity.CurrentSummary = summary;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return Ok(story);
+            // The chapter number lets the client redirect straight to the
+            // new chapter instead of re-fetching the whole list.
+            return Ok(new GenerateChapterResponse(nextChapterNumber, story));
         }
         catch (HttpRequestException ex) when (ex.StatusCode != null && IsTransientError(ex.StatusCode.Value))
         {
@@ -186,15 +285,39 @@ public sealed class StoriesController : ControllerBase
             join chapter in _dbContext.StoryChapters on story.Id equals chapter.StoryId
             where profile.UserId == userId && profile.LanguageCode == TestLanguageCode
             orderby chapter.ChapterNumber
-            select new StoryChapterResponse(
-                chapter.ChapterNumber,
-                story.Title,
-                chapter.Title ?? story.Title,
-                chapter.Content,
-                chapter.CreatedAt)
+            select new
+            {
+                Chapter = chapter,
+                StoryTitle = story.Title
+            }
         ).ToListAsync(cancellationToken);
 
-        return Ok(new StoryChaptersResponse(chapters));
+        var chapterIds = chapters.Select(c => c.Chapter.Id).ToList();
+        var newWords = await _dbContext.ChapterNewWords
+            .Where(word => chapterIds.Contains(word.ChapterId))
+            .OrderBy(word => word.Position)
+            .Select(word => new { word.ChapterId, word.Word, word.Definition, word.Kind })
+            .ToListAsync(cancellationToken);
+
+        var wordsByChapter = newWords
+            .GroupBy(word => word.ChapterId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<NewWordDefinition>)group
+                    .Select(word => new NewWordDefinition(word.Word, word.Definition, word.Kind))
+                    .ToList());
+
+        var response = chapters
+            .Select(c => new StoryChapterResponse(
+                c.Chapter.ChapterNumber,
+                c.StoryTitle,
+                c.Chapter.Title ?? c.StoryTitle,
+                c.Chapter.Content,
+                wordsByChapter.TryGetValue(c.Chapter.Id, out var newWords) ? newWords : [],
+                c.Chapter.CreatedAt))
+            .ToList();
+
+        return Ok(new StoryChaptersResponse(response));
     }
 
     private static bool IsTransientError(HttpStatusCode? statusCode)
@@ -212,7 +335,15 @@ public sealed class StoriesController : ControllerBase
     }
 }
 
-public sealed record StoryChapterResponse(int ChapterNumber, string StoryTitle, string Title, string Content, DateTimeOffset CreatedAt);
+public sealed record GenerateChapterResponse(int ChapterNumber, GeneratedStory Story);
+
+public sealed record StoryChapterResponse(
+    int ChapterNumber,
+    string StoryTitle,
+    string Title,
+    string Content,
+    IReadOnlyList<NewWordDefinition> NewWords,
+    DateTimeOffset CreatedAt);
 
 public sealed record StoryChaptersResponse(IReadOnlyList<StoryChapterResponse> Chapters);
 

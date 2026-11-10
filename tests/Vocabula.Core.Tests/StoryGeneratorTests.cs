@@ -45,7 +45,9 @@ public sealed class StoryGeneratorTests
         ["hej"],
         [],
         [],
-        "Hon säger hej.");
+        "Hon säger hej.",
+        [new NewWordDefinition("sade", "said")],
+        [new WordGloss("sade", "said (past of säga)")]);
 
     // "sade" is the only word outside the supplied "hej" vocabulary,
     // so this story passes the code-enforced word cap without a rewrite.
@@ -55,7 +57,9 @@ public sealed class StoryGeneratorTests
         ["hej"],
         [],
         [],
-        "Han äter banan.");
+        "Han äter banan.",
+        [new NewWordDefinition("klockan", "clock")],
+        []);
 
     [Fact]
     public async Task GenerateAsync_WithPreviousSummary_PromptsForContinuation()
@@ -119,6 +123,8 @@ public sealed class StoryGeneratorTests
         Assert.Contains("Use ONLY the vocabulary and grammar supplied", content);
         // The model must self-check the count instead of exceeding the cap.
         Assert.Contains("rewrite the chapter", content);
+        // New words need learner-friendly definitions.
+        Assert.Contains("short English definition", content);
     }
 
     [Fact]
@@ -219,6 +225,32 @@ public sealed class StoryGeneratorTests
     }
 
     [Fact]
+    public async Task GenerateAsync_SchemaRequiresNewWordsWithDefinitions()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
+            .RootElement
+            .GetProperty("response_format")
+            .GetProperty("json_schema")
+            .GetProperty("schema");
+
+        Assert.Contains("newWords", schema.GetProperty("required")
+            .EnumerateArray()
+            .Select(required => required.GetString()));
+
+        var newWords = schema.GetProperty("properties").GetProperty("newWords");
+        Assert.Equal("array", newWords.GetProperty("type").GetString());
+        var wordItem = newWords.GetProperty("items");
+        Assert.Equal("string", wordItem.GetProperty("properties").GetProperty("word").GetProperty("type").GetString());
+        Assert.Equal("string", wordItem.GetProperty("properties").GetProperty("definition").GetProperty("type").GetString());
+    }
+
+    [Fact]
     public async Task GenerateAsync_WithAcquiredKnowledge_IncludesItInPrompt()
     {
         var client = new RecordingMistralClient();
@@ -268,6 +300,154 @@ public sealed class StoryGeneratorTests
         // The word check result replaces whatever the model claimed: only
         // "sade" is outside the "hej" vocabulary (hon is a function word).
         Assert.Equal(["sade"], story.PotentiallyNewLanguage);
+        Assert.Equal(["sade"], story.NewWords.Select(entry => entry.Word));
+        Assert.Equal("said", story.NewWords[0].Definition);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DropsClaimsNotPresentInTheStory()
+    {
+        // Claims are verified against the text: words that are not in the
+        // story are dropped, words that appear keep their definition even
+        // when the code's computed list differs (the model knows what is
+        // worth learning — e.g. it will not claim proper nouns).
+        var client = new RecordingMistralClient();
+        client.Enqueue(new GeneratedStory(
+            "En dag",
+            "Hej! Katten bananer solen.",
+            ["hej"],
+            [],
+            [],
+            "Katten säger hej.",
+            [
+                new NewWordDefinition("bananer", "bananas"),
+                new NewWordDefinition("fiende", "enemy") // fantasy claim: not in the story
+            ],
+            [new WordGloss("katten", "the cat")]));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        // Computed new words (used for the cap): all words outside "hej".
+        Assert.Equal(["katten", "bananer", "solen"], story.PotentiallyNewLanguage);
+        // Displayed words: only the claim that appears in the text.
+        var bananer = Assert.Single(story.NewWords);
+        Assert.Equal("bananer", bananer.Word);
+        Assert.Equal("bananas", bananer.Definition);
+        Assert.Equal(NewWordKinds.Ai, bananer.Kind); // story-introduced vocabulary
+    }
+
+    [Fact]
+    public async Task GenerateAsync_RecapWordsDoNotCountAgainstTheCap()
+    {
+        // The previous chapter's recap whitelists its words, so recurring
+        // characters (Anna) are neither counted as new vocabulary nor retried.
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory("Anna kommer"));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(
+            Knowledge,
+            previousStorySummary: "Anna säger hej. Hon bor i Solna.",
+            cancellationToken: default);
+
+        Assert.Single(client.Requests); // no rewrite necessary
+        // "säger" and "hon" are whitelisted by the recap.
+        Assert.Equal(["sade"], story.PotentiallyNewLanguage);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptExcludesProperNounsFromNewWords()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("Never list proper nouns", content);
+        Assert.Contains("reuse the same character names", content);
+        Assert.Contains("Every word of a supplied multi-word entry counts as known", content);
+        // Claims must be exhaustive: no unclaimed unknown words.
+        Assert.Contains("There are no unimportant words", content);
+        // Word-level glosses for notebook vocabulary beat phrase translations.
+        Assert.Contains("word-level English gloss", content);
+        Assert.Contains("never the notebook's full phrase translation", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SchemaRequiresWordGlosses()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
+            .RootElement
+            .GetProperty("response_format")
+            .GetProperty("json_schema")
+            .GetProperty("schema");
+
+        Assert.Contains("wordGlosses", schema.GetProperty("required")
+            .EnumerateArray()
+            .Select(required => required.GetString()));
+        var glossItem = schema.GetProperty("properties").GetProperty("wordGlosses").GetProperty("items");
+        Assert.Equal("string", glossItem.GetProperty("properties").GetProperty("word").GetProperty("type").GetString());
+        Assert.Equal("string", glossItem.GetProperty("properties").GetProperty("gloss").GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DropsClaimsOfWordsInsideKnownPhrases()
+    {
+        // Knowing "Vad heter du?" means "heter" is known: the model may
+        // still claim it, but the word checker whitelists it and the
+        // claim is dropped from the words shown to the learner.
+        var client = new RecordingMistralClient();
+        client.Enqueue(new GeneratedStory(
+            "Vad heter du?",
+            "Vad heter du? Jag heter Erik!",
+            ["hej"],
+            [],
+            [],
+            "Erik frågar.",
+            [new NewWordDefinition("heter", "is called")],
+            []));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(
+            Knowledge,
+            previousStorySummary: null,
+            acquiredVocabulary: ["Vad heter du?"],
+            cancellationToken: default);
+
+        Assert.Equal(["erik"], story.PotentiallyNewLanguage);
+        Assert.Empty(story.NewWords);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DefinitionCaseInsensitiveMatch()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(new GeneratedStory(
+            "En dag",
+            "Hej! Solen skiner.",
+            ["hej"],
+            [],
+            [],
+            "Solen skiner.",
+            [new NewWordDefinition("Solen", "the sun")],
+            [new WordGloss("solen", "the sun")]));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var solen = Assert.Single(story.NewWords);
+        Assert.Equal("solen", solen.Word.ToLowerInvariant());
+        Assert.Equal("the sun", solen.Definition);
     }
 
     [Fact]
