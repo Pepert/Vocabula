@@ -65,7 +65,10 @@ public sealed class StoryGenerator : IStoryGenerator
         ArgumentNullException.ThrowIfNull(knowledge);
 
         var knowledgeJson = JsonSerializer.Serialize(knowledge, JsonOptions);
-        var allowedTerms = CollectAllowedTerms(knowledge, acquiredVocabulary, acquiredGrammar);
+        // The recap of the previous chapter whitelists its words (character
+        // names included): they were already presented to the learner, so
+        // they neither count against the cap nor deserve underlines.
+        var allowedTerms = CollectAllowedTerms(knowledge, acquiredVocabulary, acquiredGrammar, previousStorySummary);
 
         var messages = new List<object>
         {
@@ -93,29 +96,24 @@ public sealed class StoryGenerator : IStoryGenerator
 
             if (newWords.Count <= StoryWordChecker.MaxNewWordsPerChapter || rewrites >= MaxRewrites)
             {
-                // The computed word list is authoritative: report what the
-                // code found, not what the model claims. Definitions come
-                // from the model's newWords entries, matched by word; a
-                // missing definition stays null (the frontend shows a
-                // fallback) rather than trusting claims for other words.
-                var definitions = new Dictionary<string, string?>(StringComparer.Ordinal);
-                foreach (var entry in story.NewWords)
-                {
-                    definitions.TryAdd(entry.Word.ToLowerInvariant(), entry.Definition);
-                }
+                // The computed list is the honest count for the cap; the
+                // words shown to the learner are the model's newWords
+                // claims, verified against the text: entries whose word is
+                // not actually in the story are dropped. Proper nouns are
+                // excluded by the prompt, so characters are never
+                // underlined as vocabulary.
+                var storyWords = new HashSet<string>(
+                    StoryWordChecker.Tokenize(story.Story),
+                    StringComparer.Ordinal);
 
-                var aligned = newWords
-                    .Select(word => new NewWordDefinition(
-                        word,
-                        definitions.TryGetValue(word.ToLowerInvariant(), out var definition)
-                            ? definition
-                            : null))
+                var verified = story.NewWords
+                    .Where(entry => storyWords.Contains(entry.Word.ToLowerInvariant()))
                     .ToList();
 
                 return story with
                 {
                     PotentiallyNewLanguage = newWords,
-                    NewWords = aligned
+                    NewWords = verified
                 };
             }
 
@@ -144,14 +142,17 @@ public sealed class StoryGenerator : IStoryGenerator
             "3. Use ONLY the vocabulary and grammar supplied below, plus the basic function words needed to form sentences. " +
             "4. You may use AT MOST 3 words that are not in the supplied lists. " +
             "Count them before answering: if you find more than 3, rewrite the chapter with simpler wording instead of answering. " +
-            "List every such word in potentiallyNewLanguage, and give each of them an entry in newWords " +
-            "with a short English definition a beginner can understand. " +
+            "List every such word in potentiallyNewLanguage. " +
             "5. If the chapter contains dialogue, put every spoken line on its own line, " +
             "starting with an em dash followed by a space (example: — Hej, säger Anna.). " +
             "6. Include at most one emoji in the chapter. " +
             "7. Do not claim an item was used unless it appears in the story. " +
             "8. Write in the summary field 1 to 3 short sentences in " + knowledge.TargetLanguage + " " +
-            "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story.\n\n";
+            "at the learner's level, recapping what happened in this chapter, so the next chapter can continue the story. " +
+            "9. Never list proper nouns (people's names, place names) in newWords or potentiallyNewLanguage — " +
+            "they are not vocabulary to learn; reuse the same character names as earlier chapters. " +
+            "Every entry in newWords is a content word that appears in the story, with a short English " +
+            "definition a beginner can understand.\n\n";
 
         var acquiredSection =
             acquiredVocabulary is { Count: > 0 } || acquiredGrammar is { Count: > 0 }
@@ -182,7 +183,8 @@ public sealed class StoryGenerator : IStoryGenerator
     private static IEnumerable<string> CollectAllowedTerms(
         NotebookKnowledge knowledge,
         IReadOnlyList<string>? acquiredVocabulary,
-        IReadOnlyList<string>? acquiredGrammar)
+        IReadOnlyList<string>? acquiredGrammar,
+        string? previousStorySummary)
     {
         foreach (var term in acquiredVocabulary ?? [])
         {
@@ -192,6 +194,14 @@ public sealed class StoryGenerator : IStoryGenerator
         foreach (var grammar in acquiredGrammar ?? [])
         {
             yield return grammar;
+        }
+
+        // Words the recap mentions were presented in earlier chapters
+        // (character names especially): FindNewWords tokenizes each
+        // allowed term, so a whole sentence whitelists its words.
+        if (!string.IsNullOrWhiteSpace(previousStorySummary))
+        {
+            yield return previousStorySummary;
         }
 
         foreach (var entry in knowledge.Vocabulary)

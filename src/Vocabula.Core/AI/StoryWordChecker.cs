@@ -68,7 +68,11 @@ public static class StoryWordChecker
         return newWords;
     }
 
-    private static IEnumerable<string> Tokenize(string text)
+    /// <summary>
+    /// Words of the text, lowercased, in order: letter runs split on
+    /// everything else. Handles Swedish characters (åäö) via Unicode.
+    /// </summary>
+    public static IEnumerable<string> Tokenize(string text)
     {
         var current = new StringBuilder();
         foreach (var character in text.ToLowerInvariant())

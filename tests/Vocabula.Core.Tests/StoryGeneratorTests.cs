@@ -303,12 +303,12 @@ public sealed class StoryGeneratorTests
     }
 
     [Fact]
-    public async Task GenerateAsync_AlignsDefinitionsWithComputedWords()
+    public async Task GenerateAsync_DropsClaimsNotPresentInTheStory()
     {
-        // The model claims definitions for words that are not actually new,
-        // and misses a definition for one computed word: the code-aligned
-        // result keeps only the computed words, reuses matching definitions
-        // and leaves the missing one null instead of trusting claims.
+        // Claims are verified against the text: words that are not in the
+        // story are dropped, words that appear keep their definition even
+        // when the code's computed list differs (the model knows what is
+        // worth learning — e.g. it will not claim proper nouns).
         var client = new RecordingMistralClient();
         client.Enqueue(new GeneratedStory(
             "En dag",
@@ -325,14 +325,46 @@ public sealed class StoryGeneratorTests
 
         var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
-        // Computed new words: katten, bananer, solen (all absent from "hej").
+        // Computed new words (used for the cap): all words outside "hej".
         Assert.Equal(["katten", "bananer", "solen"], story.PotentiallyNewLanguage);
-        var bananer = story.NewWords.Single(entry => entry.Word == "bananer");
+        // Displayed words: only the claim that appears in the text.
+        var bananer = Assert.Single(story.NewWords);
+        Assert.Equal("bananer", bananer.Word);
         Assert.Equal("bananas", bananer.Definition);
-        Assert.All(
-            story.NewWords.Where(entry => entry.Word != "bananer"),
-            entry => Assert.Null(entry.Definition));
-        Assert.DoesNotContain(story.NewWords, entry => entry.Word == "fiende");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_RecapWordsDoNotCountAgainstTheCap()
+    {
+        // The previous chapter's recap whitelists its words, so recurring
+        // characters (Anna) are neither counted as new vocabulary nor retried.
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory("Anna kommer"));
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        var story = await generator.GenerateAsync(
+            Knowledge,
+            previousStorySummary: "Anna säger hej. Hon bor i Solna.",
+            cancellationToken: default);
+
+        Assert.Single(client.Requests); // no rewrite necessary
+        // "säger" and "hon" are whitelisted by the recap.
+        Assert.Equal(["sade"], story.PotentiallyNewLanguage);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_PromptExcludesProperNounsFromNewWords()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("Never list proper nouns", content);
+        Assert.Contains("reuse the same character names", content);
     }
 
     [Fact]
@@ -351,7 +383,8 @@ public sealed class StoryGeneratorTests
 
         var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
 
-        var solen = story.NewWords.Single(entry => entry.Word == "solen");
+        var solen = Assert.Single(story.NewWords);
+        Assert.Equal("solen", solen.Word.ToLowerInvariant());
         Assert.Equal("the sun", solen.Definition);
     }
 
