@@ -214,9 +214,7 @@ certificate lives there while the pool stays in eu-west-3. Creating the
 domain takes a while (up to ~60 minutes for the CloudFront distribution).
 
 After the first apply, the external identity providers must authorize the
-new redirect URI by hand in their respective consoles (the old prefixed
-domain `vocabula-prod.auth.eu-west-3.amazoncognito.com` keeps working in
-parallel, so nothing breaks during the transition):
+new redirect URI by hand in their respective consoles:
 
 - **Google Cloud Console** → Credentials → the OAuth client →
   Authorized redirect URIs: add `https://auth.vocabula.dev/oauth2/idpresponse`
