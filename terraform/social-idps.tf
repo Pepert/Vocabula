@@ -1,6 +1,6 @@
 # Social sign-in: Google (built-in) and LinkedIn (generic OIDC) as identity
 # providers on the Cognito user pool. Users clicking these buttons on the
-# hosted UI (https://vocabula-prod.auth.eu-west-3.amazoncognito.com)
+# hosted UI (https://auth.vocabula.dev)
 # authenticate against the provider and receive regular Cognito tokens; the
 # API is unchanged.
 #

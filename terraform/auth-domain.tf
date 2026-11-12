@@ -6,10 +6,10 @@
 # itself stays in eu-west-3. DNS validation happens in the vocabula.dev
 # Route 53 zone (Route 53 is global, so the default provider can manage it).
 #
-# The prefixed domain (vocabula-prod.auth.eu-west-3.amazoncognito.com,
-# cognito.tf) keeps working alongside this one: sessions signed in through
-# it stay valid. After applying, the external identity providers must
-# whitelist the new redirect URI manually (see aws-deployment.md).
+# The hosted UI is served on this custom domain only (the legacy prefixed
+# domain that preceded it has been removed). After applying, the external
+# identity providers must whitelist the redirect URI manually (see
+# aws-deployment.md).
 
 resource "aws_acm_certificate" "auth" {
   provider          = aws.us_east_1

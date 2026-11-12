@@ -5,12 +5,6 @@
 # CLI (see docs/architecture/aws-deployment.md) so that passwords never enter
 # Terraform state.
 
-variable "cognito_domain_prefix" {
-  description = "Prefix for the Cognito hosted UI domain (must be unique within the region's shared namespace; change it if apply fails with a domain conflict)."
-  type        = string
-  default     = "vocabula-prod"
-}
-
 resource "aws_cognito_user_pool" "vocabula" {
   name = "vocabula"
 
@@ -101,9 +95,4 @@ resource "aws_cognito_user_pool_client" "vocabula_app" {
   ]
 
   logout_urls = ["http://localhost:5001", "vocabula://callback"]
-}
-
-resource "aws_cognito_user_pool_domain" "vocabula" {
-  domain       = var.cognito_domain_prefix
-  user_pool_id = aws_cognito_user_pool.vocabula.id
 }
