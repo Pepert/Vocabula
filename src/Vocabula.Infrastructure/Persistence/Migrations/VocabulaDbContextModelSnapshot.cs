@@ -48,6 +48,11 @@ namespace Vocabula.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("identity_provider");
 
+                    b.Property<string>("Language")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("language");
+
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)")
