@@ -29,6 +29,28 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
     /// </summary>
     public bool EnsureExtractorThrows { get; set; }
 
+    /// <summary>
+    /// Inserts the account row matching the test principal, optionally with
+    /// a UI language preference. Call after CreateClient, so the in-memory
+    /// database exists.
+    /// </summary>
+    public void SeedUser(string? language)
+    {
+        var user = new Vocabula.Core.Domain.AppUser
+        {
+            Id = Guid.NewGuid(),
+            IdentityProvider = "https://cognito-idp.test.amazonaws.com/test",
+            ExternalSubject = "11111111-1111-1111-1111-111111111111",
+            Language = language,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VocabulaDbContext>();
+        db.AppUsers.Add(user);
+        db.SaveChanges();
+    }
+
     public NotebookKnowledge ExtractorKnowledge { get; set; } = new(
         "Swedish",
         "a notebook page",
