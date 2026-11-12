@@ -97,10 +97,11 @@ Relationships between learning sources and extracted knowledge, and between stor
 
 ### Language scope
 
-- The MVP supports Swedish only.
-- There is no `LANGUAGE` lookup table or language-management feature yet.
-- `LEARNING_PROFILE.language_code` is retained and set to `sv` by the application.
-- Keeping the code makes future languages possible without adding language columns throughout the knowledge and story tables.
+- Accounts choose one learning language at a time (English, French, Spanish or Swedish) via `APP_USER.learning_language`; it drives the active learning profile behind knowledge extraction, story generation and the chapter list.
+- There is no `LANGUAGE` lookup table: a language catalogue in code (`Vocabula.Core.Languages.LearningLanguages`) validates codes and feeds the AI prompts.
+- `LEARNING_PROFILE.language_code` stores the studied language; every profile of a user is kept, so switching languages switches to that language's knowledge and chapters without losing anything.
+- The daily chapter quota is per user across all their learning profiles.
+- Vocabulary translations, new-word definitions and word glosses are produced in the account's UI language (`APP_USER.language`), English by default; definitions are stored in the language they were written in.
 
 ### Vocabulary ownership
 
@@ -114,7 +115,8 @@ Relationships between learning sources and extracted knowledge, and between stor
 These are proposals to discuss, not final decisions:
 
 - A learning profile is unique by `(user_id, language_code)`.
-- The application creates only an `sv` learning profile during the Swedish MVP.
+- Learning profiles are created lazily, the first time material is added under that language.
+- Switching the account's learning language never creates or destroys profiles; it only changes which one is active.
 - A normalized vocabulary term is unique within a learning profile, subject to validating how multiple meanings and parts of speech should be represented.
 - A learning source belongs to exactly one learning profile.
 - Extracted knowledge is not considered approved merely because the model returned it.

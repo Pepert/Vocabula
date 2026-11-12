@@ -6,7 +6,7 @@ This directory is the source of truth for Vocabula's product and technical docum
 
 Vocabula helps language learners read interesting material that stays close to the vocabulary and grammar they have acquired. A learner submits photographs of studied material, reviews the extracted knowledge, and uses the approved knowledge to continue a personalized story.
 
-The first product use case is a single learner studying Swedish. The schema keeps a language code as a lightweight future extension point, but the MVP has no language catalogue or language-selection feature.
+The first product use case is a single learner studying Swedish. The account now carries a learning language (English, French, Spanish or Swedish) that switches the active learning profile: knowledge, story and chapters stay separate per language, while the daily chapter quota is shared across all of them.
 
 ### MVP scope
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Vocabula.Api.Authorization;
 using Vocabula.Core.Domain;
+using Vocabula.Core.Languages;
 using Vocabula.Infrastructure.Persistence;
 
 namespace Vocabula.Api.Controllers;
@@ -28,7 +29,7 @@ public sealed class UsersController : ControllerBase
     {
         var user = await GetUserAsync(cancellationToken);
 
-        return Ok(new CurrentUserResponse(_currentAppUser.UserId, user?.Language));
+        return Ok(new CurrentUserResponse(_currentAppUser.UserId, user?.Language, user?.LearningLanguage));
     }
 
     /// <summary>
@@ -64,7 +65,45 @@ public sealed class UsersController : ControllerBase
         user.Language = request.Language;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new CurrentUserResponse(_currentAppUser.UserId, user.Language));
+        return Ok(new CurrentUserResponse(_currentAppUser.UserId, user.Language, user.LearningLanguage));
+    }
+
+    /// <summary>
+    /// Switches the language the user is learning. Switching keeps every
+    /// stored profile: knowledge, story and chapters of each language stay
+    /// separate, and the active one selects what the app shows.
+    /// </summary>
+    [HttpPatch("me/learning-language")]
+    public async Task<ActionResult<CurrentUserResponse>> UpdateLearningLanguageAsync(
+        [FromBody] UpdateLearningLanguageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var supportedCodes = LearningLanguages.All.Select(language => language.Code).ToList();
+        if (string.IsNullOrEmpty(request.LearningLanguage) || !supportedCodes.Contains(request.LearningLanguage))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Unsupported learning language",
+                Detail = $"Learning language must be one of: {string.Join(", ", supportedCodes)}.",
+                Status = 400
+            });
+        }
+
+        var user = await GetUserAsync(cancellationToken);
+        if (user == null)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "User not found",
+                Detail = "The authenticated user has no account record yet.",
+                Status = 404
+            });
+        }
+
+        user.LearningLanguage = request.LearningLanguage;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new CurrentUserResponse(_currentAppUser.UserId, user.Language, user.LearningLanguage));
     }
 
     private async Task<AppUser?> GetUserAsync(CancellationToken cancellationToken)
@@ -74,6 +113,8 @@ public sealed class UsersController : ControllerBase
     }
 }
 
-public sealed record CurrentUserResponse(Guid UserId, string? Language);
+public sealed record CurrentUserResponse(Guid UserId, string? Language, string? LearningLanguage);
 
 public sealed record UpdateCurrentUserRequest(string? Language);
+
+public sealed record UpdateLearningLanguageRequest(string LearningLanguage);

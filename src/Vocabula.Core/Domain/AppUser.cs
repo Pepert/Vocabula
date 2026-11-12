@@ -10,6 +10,9 @@ public sealed class AppUser
     /// <summary>UI language preference ("en", "fr"); null = follow the
     /// device language.</summary>
     public string? Language { get; set; }
+    /// <summary>The language the user is learning ("en", "fr", "es", "sv");
+    /// null = not chosen yet. Turns the active learning profile.</summary>
+    public string? LearningLanguage { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     private readonly List<LearningProfile> _learningProfiles = [];

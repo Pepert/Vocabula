@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Vocabula.Core;
 using Vocabula.Core.AI;
+using Vocabula.Core.Languages;
 using Vocabula.Core.Models;
 
 const string imagePath = "/Users/leo/Development/Projects/Vocabula/input/notebook.jpeg";
@@ -9,6 +10,7 @@ const string outputPath = "/Users/leo/Development/Projects/Vocabula/output/resul
 const string knowledgeStorePath = "/Users/leo/Development/Projects/Vocabula/knowledge-store.json";
 const string visionModel = "mistral-small-2506";
 const string storyModel = "mistral-small-2506";
+const string targetLanguageCode = "sv";
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -42,7 +44,7 @@ try
     Console.WriteLine($"Reading notebook image: {imagePath}");
 
     await using var imageStream = File.OpenRead(imagePath);
-    var knowledge = await extractor.ExtractAsync(imageStream, "image/jpeg");
+    var knowledge = await extractor.ExtractAsync(imageStream, "image/jpeg", LearningLanguages.EnglishNameOf(targetLanguageCode));
 
     NotebookKnowledge mergedKnowledge = knowledge;
     if (File.Exists(knowledgeStorePath))
@@ -64,7 +66,7 @@ try
     var mergedJson = JsonSerializer.Serialize(mergedKnowledge, new JsonSerializerOptions { WriteIndented = true });
     await File.WriteAllTextAsync(knowledgeStorePath, mergedJson);
 
-    var story = await generator.GenerateAsync(mergedKnowledge);
+    var story = await generator.GenerateAsync(mergedKnowledge, targetLanguageCode);
 
     var result = new NotebookProcessingResult(mergedKnowledge, story);
     var outputJson = NotebookProcessingResultJson.Serialize(result);
