@@ -70,9 +70,25 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
     public async Task<NotebookKnowledge> ExtractAsync(
         Stream image,
         string mediaType,
+        string? expectedLanguageName = null,
+        string? definitionLanguageName = null,
         CancellationToken cancellationToken = default)
     {
         var imageDataUri = LocalImage.ToDataUri(image, mediaType);
+
+        // Definitions and explanations follow the account's UI language,
+        // defaulting to English.
+        var definitionLanguage = string.IsNullOrWhiteSpace(definitionLanguageName)
+            ? "English"
+            : definitionLanguageName;
+
+        // Knowing which language the learner studies keeps extraction anchored:
+        // handwriting that is unreadable or not written in that language lands
+        // in uncertainItems instead of becoming vocabulary in the wrong tongue.
+        var languageContext = string.IsNullOrEmpty(expectedLanguageName)
+            ? ""
+            : "The notebook teaches " + expectedLanguageName + "; treat any page that is "
+              + "clearly not written in it as uncertain. ";
 
         var request = new
         {
@@ -87,9 +103,10 @@ public sealed class NotebookKnowledgeExtractor : INotebookKnowledgeExtractor
                         new
                         {
                             type = "text",
-                            text = "Analyze this language-learning notebook page. Extract only vocabulary and " +
+                            text = "Analyze this language-learning notebook page. " + languageContext +
+                                   "Extract only vocabulary and " +
                                    "grammar supported by visible evidence. Preserve the studied-language spelling. " +
-                                   "Give meanings and explanations in English. Put unreadable or ambiguous content " +
+                                   "Give meanings and explanations in " + definitionLanguage + ". Put unreadable or ambiguous content " +
                                    "in uncertainItems instead of guessing. Return JSON matching the supplied schema."
                         },
                         new

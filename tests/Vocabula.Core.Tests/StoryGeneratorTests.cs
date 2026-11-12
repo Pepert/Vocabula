@@ -68,7 +68,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, "Nora found a red envelope under the door...", cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", "Nora found a red envelope under the door...", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -85,7 +85,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -101,7 +101,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        var story = await generator.GenerateAsync(Knowledge, "previous chapter summary");
+        var story = await generator.GenerateAsync(Knowledge, "sv", "previous chapter summary");
 
         Assert.Equal("A morning in Stockholm", story.Title);
         Assert.Contains("Hej", story.Story);
@@ -115,7 +115,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -128,13 +128,44 @@ public sealed class StoryGeneratorTests
     }
 
     [Fact]
+    public async Task GenerateAsync_DefinitionsFollowTheDefinitionLanguage()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, "sv", definitionLanguageName: "French", cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("short French definition", content);
+        Assert.Contains("word-level French gloss", content);
+        Assert.DoesNotContain("English definition", content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DefinitionLanguageDefaultsToEnglish()
+    {
+        var client = new RecordingMistralClient();
+        client.Enqueue(ValidStory());
+        var generator = new StoryGenerator(client, "mistral-medium-latest");
+
+        await generator.GenerateAsync(Knowledge, "sv", definitionLanguageName: null, cancellationToken: default);
+
+        var content = MessageContent(client);
+
+        Assert.Contains("short English definition", content);
+        Assert.Contains("word-level English gloss", content);
+    }
+
+    [Fact]
     public async Task GenerateAsync_PromptRequiresChapterTitleInTargetLanguage()
     {
         var client = new RecordingMistralClient();
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -149,7 +180,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -164,7 +195,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -178,7 +209,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -192,7 +223,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -207,7 +238,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
             .RootElement
@@ -231,7 +262,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
             .RootElement
@@ -259,6 +290,7 @@ public sealed class StoryGeneratorTests
 
         await generator.GenerateAsync(
             Knowledge,
+            targetLanguageCode: "sv",
             previousStorySummary: null,
             acquiredVocabulary: ["hus", "katt", "springer"],
             acquiredGrammar: ["present tense"],
@@ -280,7 +312,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -294,7 +326,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        var story = await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         Assert.Single(client.Requests);
         // The word check result replaces whatever the model claimed: only
@@ -326,7 +358,7 @@ public sealed class StoryGeneratorTests
             [new WordGloss("katten", "the cat")]));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        var story = await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         // Computed new words (used for the cap): all words outside "hej".
         Assert.Equal(["katten", "bananer", "solen"], story.PotentiallyNewLanguage);
@@ -348,6 +380,7 @@ public sealed class StoryGeneratorTests
 
         var story = await generator.GenerateAsync(
             Knowledge,
+            targetLanguageCode: "sv",
             previousStorySummary: "Anna säger hej. Hon bor i Solna.",
             cancellationToken: default);
 
@@ -363,7 +396,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var content = MessageContent(client);
 
@@ -384,7 +417,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory());
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var schema = JsonSerializer.SerializeToDocument(client.Requests[0])
             .RootElement
@@ -420,6 +453,7 @@ public sealed class StoryGeneratorTests
 
         var story = await generator.GenerateAsync(
             Knowledge,
+            targetLanguageCode: "sv",
             previousStorySummary: null,
             acquiredVocabulary: ["Vad heter du?"],
             cancellationToken: default);
@@ -443,7 +477,7 @@ public sealed class StoryGeneratorTests
             [new WordGloss("solen", "the sun")]));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        var story = await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         var solen = Assert.Single(story.NewWords);
         Assert.Equal("solen", solen.Word.ToLowerInvariant());
@@ -458,7 +492,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(ValidStory("Kapitel ett, bättre"));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        var story = await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         // The retry request replays the first attempt as an assistant
         // message, then points at the exact words that broke the cap.
@@ -488,7 +522,7 @@ public sealed class StoryGeneratorTests
         client.Enqueue(OverCapStory("Overlimit chapter three"));
         var generator = new StoryGenerator(client, "mistral-medium-latest");
 
-        var story = await generator.GenerateAsync(Knowledge, cancellationToken: default);
+        var story = await generator.GenerateAsync(Knowledge, "sv", cancellationToken: default);
 
         // Initial attempt plus two rewrites, then give up gracefully.
         Assert.Equal(3, client.Requests.Count);

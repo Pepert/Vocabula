@@ -71,4 +71,39 @@ public sealed class NotebookKnowledgeExtractorTests
         }
         Assert.True(hasImagePart, "the request must contain an image_url part");
     }
+
+    [Fact]
+    public async Task ExtractAsync_TranslationsFollowTheDefinitionLanguage()
+    {
+        var client = new RecordingMistralClient();
+        var extractor = new NotebookKnowledgeExtractor(client, "mistral-small-latest");
+
+        await extractor.ExtractAsync(JpegImage(), "image/jpeg", "Swedish", "French");
+
+        var document = JsonSerializer.SerializeToDocument(client.LastRequest!);
+        var content = document.RootElement.GetProperty("messages")[0].GetProperty("content");
+        var text = content.EnumerateArray()
+            .First(part => part.GetProperty("type").GetString() == "text")
+            .GetProperty("text").GetString()!;
+
+        Assert.Contains("The notebook teaches Swedish", text);
+        Assert.Contains("Give meanings and explanations in French", text);
+    }
+
+    [Fact]
+    public async Task ExtractAsync_DefinitionLanguageDefaultsToEnglish()
+    {
+        var client = new RecordingMistralClient();
+        var extractor = new NotebookKnowledgeExtractor(client, "mistral-small-latest");
+
+        await extractor.ExtractAsync(JpegImage(), "image/jpeg");
+
+        var document = JsonSerializer.SerializeToDocument(client.LastRequest!);
+        var content = document.RootElement.GetProperty("messages")[0].GetProperty("content");
+        var text = content.EnumerateArray()
+            .First(part => part.GetProperty("type").GetString() == "text")
+            .GetProperty("text").GetString()!;
+
+        Assert.Contains("Give meanings and explanations in English", text);
+    }
 }

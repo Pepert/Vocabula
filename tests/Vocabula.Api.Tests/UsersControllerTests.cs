@@ -78,7 +78,46 @@ public sealed class UsersControllerTests
         Assert.Null(me.Language); // unchanged
     }
 
-    private sealed record MeStub(Guid UserId, string? Language);
+    private sealed record MeStub(Guid UserId, string? Language, string? LearningLanguage);
 
     private sealed record UpdateRequestStub(string? Language);
+
+    private sealed record UpdateLearningLanguageRequestStub(string LearningLanguage);
+
+    [Fact]
+    public async Task UpdateLearningLanguage_PersistsAndServesIt()
+    {
+        using var factory = new AuthenticatedWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var updated = await client.PatchAsJsonAsync(
+            "/api/users/me/learning-language",
+            new UpdateLearningLanguageRequestStub("es"));
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+
+        // Rounds-tripped through the database, not just echoed: fetch again.
+        var me = await (await client.GetAsync("/api/users/me"))
+            .Content.ReadFromJsonAsync<MeStub>(JsonOptions);
+        Assert.NotNull(me);
+        Assert.Equal("es", me.LearningLanguage);
+        Assert.Null(me.Language); // the UI language is a separate concern
+    }
+
+    [Fact]
+    public async Task UpdateLearningLanguage_WithUnsupportedCode_Returns400()
+    {
+        using var factory = new AuthenticatedWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var rejected = await client.PatchAsJsonAsync(
+            "/api/users/me/learning-language",
+            new UpdateLearningLanguageRequestStub("de"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+
+        var me = await (await client.GetAsync("/api/users/me"))
+            .Content.ReadFromJsonAsync<MeStub>(JsonOptions);
+        Assert.NotNull(me);
+        Assert.Null(me.LearningLanguage); // unchanged
+    }
 }

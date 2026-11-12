@@ -69,12 +69,22 @@ public sealed class StoryGenerator : IStoryGenerator
 
     public async Task<GeneratedStory> GenerateAsync(
         NotebookKnowledge knowledge,
+        string targetLanguageCode,
         string? previousStorySummary = null,
         IReadOnlyList<string>? acquiredVocabulary = null,
         IReadOnlyList<string>? acquiredGrammar = null,
+        string? definitionLanguageName = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(knowledge);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetLanguageCode);
+
+        // Definitions follow the account's UI language ("French" for a
+        // French phone), defaulting to English; the story itself is
+        // written in the learned language regardless.
+        var definitionLanguage = string.IsNullOrWhiteSpace(definitionLanguageName)
+            ? "English"
+            : definitionLanguageName;
 
         var knowledgeJson = JsonSerializer.Serialize(knowledge, JsonOptions);
         // The recap of the previous chapter whitelists its words (character
@@ -84,7 +94,7 @@ public sealed class StoryGenerator : IStoryGenerator
 
         var messages = new List<object>
         {
-            new { role = "user", content = BuildUserPrompt(knowledge, knowledgeJson, previousStorySummary, acquiredVocabulary, acquiredGrammar) }
+            new { role = "user", content = BuildUserPrompt(knowledge, knowledgeJson, previousStorySummary, acquiredVocabulary, acquiredGrammar, definitionLanguage) }
         };
 
         var rewrites = 0;
@@ -104,7 +114,7 @@ public sealed class StoryGenerator : IStoryGenerator
 
             // LLMs cannot reliably count their own words, so the cap is
             // verified programmatically instead of trusted.
-            var newWords = StoryWordChecker.FindNewWords(story.Story, allowedTerms);
+            var newWords = StoryWordChecker.FindNewWords(story.Story, allowedTerms, targetLanguageCode);
 
             if (newWords.Count <= StoryWordChecker.MaxNewWordsPerChapter || rewrites >= MaxRewrites)
             {
@@ -138,7 +148,8 @@ public sealed class StoryGenerator : IStoryGenerator
         string knowledgeJson,
         string? previousStorySummary,
         IReadOnlyList<string>? acquiredVocabulary,
-        IReadOnlyList<string>? acquiredGrammar)
+        IReadOnlyList<string>? acquiredGrammar,
+        string definitionLanguage)
     {
         var continuationInstruction = string.IsNullOrWhiteSpace(previousStorySummary)
             ? "Write a very short, simple beginner story in "
@@ -165,8 +176,8 @@ public sealed class StoryGenerator : IStoryGenerator
             "There are no unimportant words: every word of the story that is not in the supplied lists and not a proper noun " +
             "must appear in potentiallyNewLanguage and newWords, with no exception — even words that look basic or international. " +
             "Every entry in newWords is a content word that appears in the story and is not already known, " +
-            "with a short English definition a beginner can understand. " +
-            "10. In wordGlosses, give a short word-level English gloss for EVERY supplied-vocabulary word that appears in the story " +
+            "with a short " + definitionLanguage + " definition a beginner can understand. " +
+            "10. In wordGlosses, give a short word-level " + definitionLanguage + " gloss for EVERY supplied-vocabulary word that appears in the story " +
             "(example: bor -> live; Solna -> Solna, an area of Stockholm). " +
             "The gloss is for the single word, never the notebook's full phrase translation.\n\n";
 

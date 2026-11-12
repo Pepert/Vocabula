@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Vocabula.Api.Authorization;
 using Vocabula.Core.AI;
+using Vocabula.Core.Languages;
 using Vocabula.Core.Models;
 using Vocabula.Infrastructure.Persistence;
 using Domain = Vocabula.Core.Domain;
@@ -15,8 +16,6 @@ namespace Vocabula.Api.Controllers;
 [Authorize]
 public sealed class StoriesController : ControllerBase
 {
-    private const string TestLanguageCode = "sv";
-
     private readonly IStoryGenerator _generator;
     private readonly VocabulaDbContext _dbContext;
     private readonly ICurrentAppUser _currentAppUser;
@@ -49,16 +48,29 @@ public sealed class StoriesController : ControllerBase
         {
             var userId = _currentAppUser.UserId;
 
-            // Find learning profile for authenticated user
+            // The account's chosen learning language drives the profile;
+            // the chapters, story and knowledge all live under it.
+            var user = await _dbContext.AppUsers
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            if (user?.LearningLanguage == null)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Learning language not chosen",
+                    Detail = "Choose the language you are learning in the app's settings first."
+                });
+            }
+
+            // Find learning profile for the active language
             var learningProfile = await _dbContext.LearningProfiles
-                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.LanguageCode == TestLanguageCode, cancellationToken);
+                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.LanguageCode == user.LearningLanguage, cancellationToken);
 
             if (learningProfile == null)
             {
                 return BadRequest(new ProblemDetails
                 {
                     Title = "Learning profile not found",
-                    Detail = "No learning profile found for authenticated user with language code 'sv'. Extract knowledge first."
+                    Detail = $"No learning profile found for the active language '{user.LearningLanguage}'. Add learning material first."
                 });
             }
 
@@ -66,7 +78,7 @@ public sealed class StoriesController : ControllerBase
             // Shared with the extraction endpoint via StoryQuota, so the
             // limit is also reported before pictures are transcribed.
             var (chaptersToday, resetsAtUtc) = await StoryQuota.GetChaptersTodayAsync(
-                _dbContext, learningProfile.Id, cancellationToken);
+                _dbContext, userId, cancellationToken);
 
             if (StoryQuota.IsExceeded(chaptersToday))
             {
@@ -98,10 +110,15 @@ public sealed class StoriesController : ControllerBase
                 .ToListAsync(cancellationToken);
 
             var story = await _generator.GenerateAsync(
-                knowledge,
+                // The account's language wins over whatever the client
+                // sends: chapters are always written in the language the
+                // user is learning, with definitions in their UI language.
+                knowledge with { TargetLanguage = LearningLanguages.EnglishNameOf(user.LearningLanguage) ?? knowledge.TargetLanguage },
+                user.LearningLanguage,
                 storyEntity?.CurrentSummary,
                 acquiredVocabulary,
                 acquiredGrammar,
+                LearningLanguages.EnglishNameOf(user.Language) ?? "English",
                 cancellationToken);
 
             if (storyEntity == null)
@@ -224,7 +241,7 @@ public sealed class StoriesController : ControllerBase
                 if (!notebookWords.Contains(word) ||
                     definition == null ||
                     seenWords.Contains(word) ||
-                    StoryWordChecker.IsFunctionWord(word) ||
+                    StoryWordChecker.IsFunctionWord(word, user.LearningLanguage) ||
                     underlinedWords.Contains(word))
                 {
                     continue;
@@ -279,11 +296,20 @@ public sealed class StoriesController : ControllerBase
     {
         var userId = _currentAppUser.UserId;
 
+        // The account's active learning language selects which story is
+        // shown: switching languages switches to that language's chapters.
+        var user = await _dbContext.AppUsers
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user?.LearningLanguage == null)
+        {
+            return Ok(new StoryChaptersResponse([]));
+        }
+
         var chapters = await (
             from story in _dbContext.Stories
             join profile in _dbContext.LearningProfiles on story.LearningProfileId equals profile.Id
             join chapter in _dbContext.StoryChapters on story.Id equals chapter.StoryId
-            where profile.UserId == userId && profile.LanguageCode == TestLanguageCode
+            where profile.UserId == userId && profile.LanguageCode == user.LearningLanguage
             orderby chapter.ChapterNumber
             select new
             {

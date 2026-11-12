@@ -40,6 +40,11 @@ public sealed class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasMaxLength(5)
             .IsRequired(false);
 
+        builder.Property(u => u.LearningLanguage)
+            .HasColumnName("learning_language")
+            .HasMaxLength(5)
+            .IsRequired(false);
+
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

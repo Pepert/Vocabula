@@ -31,10 +31,10 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
 
     /// <summary>
     /// Inserts the account row matching the test principal, optionally with
-    /// a UI language preference. Call after CreateClient, so the in-memory
-    /// database exists.
+    /// a UI language and/or learning language preference. Call after
+    /// CreateClient, so the in-memory database exists.
     /// </summary>
-    public void SeedUser(string? language)
+    public void SeedUser(string? language = null, string? learningLanguage = null)
     {
         var user = new Vocabula.Core.Domain.AppUser
         {
@@ -42,6 +42,7 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
             IdentityProvider = "https://cognito-idp.test.amazonaws.com/test",
             ExternalSubject = "11111111-1111-1111-1111-111111111111",
             Language = language,
+            LearningLanguage = learningLanguage,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -123,6 +124,8 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
         public Task<NotebookKnowledge> ExtractAsync(
             Stream image,
             string mediaType,
+            string? expectedLanguageName = null,
+            string? definitionLanguageName = null,
             CancellationToken cancellationToken = default)
         {
             if (throwIfReached())
@@ -139,9 +142,11 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
     {
         public Task<GeneratedStory> GenerateAsync(
             NotebookKnowledge knowledge,
+            string targetLanguageCode,
             string? previousStorySummary = null,
             IReadOnlyList<string>? acquiredVocabulary = null,
             IReadOnlyList<string>? acquiredGrammar = null,
+            string? definitionLanguageName = null,
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(story());

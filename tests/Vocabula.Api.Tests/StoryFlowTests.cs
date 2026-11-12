@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Vocabula.Core.Models;
 
@@ -19,6 +20,7 @@ public sealed class StoryFlowTests
     {
         using var factory = new AuthenticatedWebApplicationFactory();
         using var client = factory.CreateClient();
+        factory.SeedUser(learningLanguage: "sv");
 
         using var form = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 3);
         using var response = await client.PostAsync("/api/knowledge/extract", form);
@@ -38,6 +40,7 @@ public sealed class StoryFlowTests
     {
         using var factory = new AuthenticatedWebApplicationFactory();
         using var client = factory.CreateClient();
+        factory.SeedUser(learningLanguage: "sv");
 
         using var form = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 11);
         using var response = await client.PostAsync("/api/knowledge/extract", form);
@@ -50,6 +53,7 @@ public sealed class StoryFlowTests
     {
         using var factory = new AuthenticatedWebApplicationFactory();
         using var client = factory.CreateClient();
+        factory.SeedUser(learningLanguage: "sv");
 
         // Create the learning profile by extracting once.
         using var form = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1);
@@ -84,6 +88,7 @@ public sealed class StoryFlowTests
     {
         using var factory = new AuthenticatedWebApplicationFactory();
         using var client = factory.CreateClient();
+        factory.SeedUser(learningLanguage: "sv");
 
         // Three chapters: the day's quota is spent.
         using var form = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1);
@@ -115,6 +120,7 @@ public sealed class StoryFlowTests
     {
         using var factory = new AuthenticatedWebApplicationFactory();
         using var client = factory.CreateClient();
+        factory.SeedUser(learningLanguage: "sv");
 
         using var form = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1);
         var knowledge = await (await client.PostAsync("/api/knowledge/extract", form))
@@ -167,6 +173,100 @@ public sealed class StoryFlowTests
         Assert.Equal(
             [("sade", "said", "ai")],
             second.Select(word => (word.Word, word.Definition!, word.Kind!)).ToArray());
+    }
+
+    [Fact]
+    public async Task Extract_WithoutLearningLanguage_Returns400BeforeTranscribing()
+    {
+        using var factory = new AuthenticatedWebApplicationFactory();
+        using var client = factory.CreateClient();
+        // No SeedUser: the auto-created account has chosen no language yet.
+
+        // The fake extractor throws if reached: enforcement must happen before.
+        factory.EnsureExtractorThrows = true;
+        using var response = await client.PostAsync(
+            "/api/knowledge/extract",
+            AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetailsStub>(JsonOptions);
+        Assert.NotNull(problem);
+        Assert.Equal("Learning language not chosen", problem.Title);
+    }
+
+    [Fact]
+    public async Task Generate_WithoutLearningLanguage_Returns400()
+    {
+        using var factory = new AuthenticatedWebApplicationFactory();
+        using var client = factory.CreateClient();
+        // No SeedUser: the auto-created account has chosen no language yet.
+
+        using var response = await client.PostAsync(
+            "/api/stories/generate",
+            AuthenticatedWebApplicationFactory.KnowledgeJson(
+                new NotebookKnowledge("Swedish", "page", [], [], [])));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SwitchingLanguage_SeparatesStoriesAndSharesTheQuota()
+    {
+        using var factory = new AuthenticatedWebApplicationFactory();
+        using var client = factory.CreateClient();
+        factory.SeedUser(learningLanguage: "sv");
+
+        // One Swedish chapter.
+        using var swedishForm = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1);
+        var knowledge = await (await client.PostAsync("/api/knowledge/extract", swedishForm))
+            .Content.ReadFromJsonAsync<NotebookKnowledge>(JsonOptions);
+        Assert.NotNull(knowledge);
+        using (var generate = await client.PostAsync(
+            "/api/stories/generate", AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge)))
+        {
+            Assert.Equal(HttpStatusCode.OK, generate.StatusCode);
+        }
+
+        // Switch to French: a separate story begins at chapter 1.
+        using (var switchResponse = await client.PatchAsync(
+            "/api/users/me/learning-language",
+            new StringContent(
+                JsonSerializer.Serialize(new { learningLanguage = "fr" }, JsonOptions),
+                Encoding.UTF8,
+                "application/json")))
+        {
+            Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
+        }
+
+        using var frenchForm = AuthenticatedWebApplicationFactory.NotebookForm(imageCount: 1);
+        knowledge = await (await client.PostAsync("/api/knowledge/extract", frenchForm))
+            .Content.ReadFromJsonAsync<NotebookKnowledge>(JsonOptions);
+        using (var generate = await client.PostAsync(
+            "/api/stories/generate", AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge)))
+        {
+            var generated = await generate.Content.ReadFromJsonAsync<GenerateStub>(JsonOptions);
+            Assert.NotNull(generated);
+            Assert.Equal(1, generated.ChapterNumber); // the French story's own chapter 1
+        }
+
+        // The chapter list shows only the active language's chapters.
+        using var chaptersResponse = await client.GetAsync("/api/stories/chapters");
+        var chapters = await chaptersResponse.Content.ReadFromJsonAsync<ChaptersStub>(JsonOptions);
+        Assert.NotNull(chapters);
+        Assert.Equal([1], chapters.Chapters.Select(c => c.ChapterNumber).ToArray());
+
+        // The quota is shared across languages: with one Swedish and one
+        // French chapter spent, only today's third chapter is left.
+        using (var generate = await client.PostAsync(
+            "/api/stories/generate", AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge)))
+        {
+            Assert.Equal(HttpStatusCode.OK, generate.StatusCode);
+        }
+
+        using var rejected = await client.PostAsync(
+            "/api/stories/generate", AuthenticatedWebApplicationFactory.KnowledgeJson(knowledge));
+        Assert.Equal((HttpStatusCode)429, rejected.StatusCode);
     }
 
     private sealed record GenerateStub(int ChapterNumber);

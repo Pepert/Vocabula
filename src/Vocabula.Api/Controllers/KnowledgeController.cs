@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Vocabula.Api.Authorization;
 using Vocabula.Core.AI;
+using Vocabula.Core.Languages;
 using Vocabula.Core.Models;
 using Vocabula.Infrastructure.Persistence;
 using Domain = Vocabula.Core.Domain;
@@ -15,8 +16,6 @@ namespace Vocabula.Api.Controllers;
 [Authorize]
 public sealed class KnowledgeController : ControllerBase
 {
-    private const string TestLanguageCode = "sv";
-
     private readonly INotebookKnowledgeExtractor _extractor;
     private readonly VocabulaDbContext _dbContext;
     private readonly ICurrentAppUser _currentAppUser;
@@ -73,9 +72,21 @@ public sealed class KnowledgeController : ControllerBase
         {
             var userId = _currentAppUser.UserId;
 
-            // Find or create learning profile for authenticated user
+            // The account's chosen learning language drives the profile.
+            var user = await _dbContext.AppUsers
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            if (user?.LearningLanguage == null)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Learning language not chosen",
+                    Detail = "Choose the language you are learning in the app's settings first."
+                });
+            }
+
+            // Find or create learning profile for the active language
             var learningProfile = await _dbContext.LearningProfiles
-                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.LanguageCode == TestLanguageCode, cancellationToken);
+                .FirstOrDefaultAsync(lp => lp.UserId == userId && lp.LanguageCode == user.LearningLanguage, cancellationToken);
 
             if (learningProfile == null)
             {
@@ -83,7 +94,7 @@ public sealed class KnowledgeController : ControllerBase
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
-                    LanguageCode = TestLanguageCode,
+                    LanguageCode = user.LearningLanguage,
                     CreatedAt = DateTimeOffset.UtcNow
                 };
                 _dbContext.LearningProfiles.Add(learningProfile);
@@ -94,7 +105,7 @@ public sealed class KnowledgeController : ControllerBase
             // always leads to writing a chapter, so the shared chapter quota
             // applies here too - reported before the pictures are read.
             var (chaptersToday, resetsAtUtc) = await StoryQuota.GetChaptersTodayAsync(
-                _dbContext, learningProfile.Id, cancellationToken);
+                _dbContext, userId, cancellationToken);
             if (StoryQuota.IsExceeded(chaptersToday))
             {
                 Response.Headers["Retry-After"] = Convert.ToInt32((resetsAtUtc - DateTimeOffset.UtcNow).TotalSeconds).ToString();
@@ -108,11 +119,15 @@ public sealed class KnowledgeController : ControllerBase
             }
 
             // Extract every page in parallel, then merge into one notebook
-            // knowledge object (deduplicated across pages).
+            // knowledge object (deduplicated across pages). The expected
+            // language anchors extraction to what the account studies, and
+            // translations follow the account's UI language.
+            var expectedLanguage = LearningLanguages.EnglishNameOf(user.LearningLanguage);
+            var definitionLanguage = LearningLanguages.EnglishNameOf(user.Language) ?? "English";
             var extractions = await Task.WhenAll(request.Images.Select(async image =>
             {
                 await using var stream = image.OpenReadStream();
-                return await _extractor.ExtractAsync(stream, image.ContentType, cancellationToken);
+                return await _extractor.ExtractAsync(stream, image.ContentType, expectedLanguage, definitionLanguage, cancellationToken);
             }));
             var knowledge = NotebookKnowledgeMerger.Merge(extractions);
 
