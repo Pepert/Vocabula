@@ -220,8 +220,31 @@ new redirect URI by hand in their respective consoles:
   Authorized redirect URIs: add `https://auth.vocabula.dev/oauth2/idpresponse`
 - **LinkedIn Developers** → the app → Auth → Redirect URLs: add
   `https://auth.vocabula.dev/oauth2/idpresponse`
+- **Apple developer console** → Identifiers → the Services ID →
+  Sign in with Apple → Configure: Domains and Subdomains
+  `auth.vocabula.dev`, Return URL `https://auth.vocabula.dev/oauth2/idpresponse`
 
 The frontend then switches its `hostedUiDomain` to `https://auth.vocabula.dev`.
+
+### Sign in with Apple specifics
+
+Apple is configured differently from Google and LinkedIn
+(`terraform/social-idps.tf`):
+
+- The `client_id` is a **Services ID** (e.g. `dev.vocabula.auth`), not the
+  app's bundle ID. The Services ID must be configured with
+  `auth.vocabula.dev` as domain and `https://auth.vocabula.dev/oauth2/idpresponse`
+  as return URL, and bound to a primary App ID that has the Sign in with
+  Apple capability.
+- Apple has **no static client secret**: its secret is an ES256-signed JWT
+  valid for at most six months. Cognito regenerates it from the `.p8`
+  private key, so nothing needs rotating unless the key itself is revoked
+  or replaced in the Apple console (then re-apply with the new key).
+- Apple uses plain-word scopes (`email name`), not OpenID scopes, and only
+  returns the user's name on the very first sign-in.
+- Users may choose **Hide My Email**, in which case the pool records an
+  `@privaterelay.appleid.com` address — accounts must never be merged
+  across providers by email when Apple is involved.
 
 ## Day-to-day operations
 

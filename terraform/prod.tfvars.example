@@ -13,12 +13,27 @@ aws_region = "eu-west-3"
 mistral_api_key = "REPLACE_WITH_YOUR_MISTRAL_API_KEY"
 db_password     = "REPLACE_WITH_A_GENERATED_PASSWORD"
 
-# Social sign-in credentials (from the Google Cloud console and the LinkedIn
-# developer console; see docs/architecture/aws-deployment.md).
+# Social sign-in credentials (from the Google Cloud console, the LinkedIn
+# developer console and the Apple developer console; see
+# docs/architecture/aws-deployment.md).
 google_client_id     = "REPLACE_WITH_GOOGLE_CLIENT_ID"
 google_client_secret = "REPLACE_WITH_GOOGLE_CLIENT_SECRET"
 linkedin_client_id     = "REPLACE_WITH_LINKEDIN_CLIENT_ID"
 linkedin_client_secret = "REPLACE_WITH_LINKEDIN_CLIENT_SECRET"
+
+# Sign in with Apple (from the Apple developer console's Certificates,
+# Identifiers & Profiles). apple_private_key is the full contents of the
+# .p8 file; a heredoc keeps it valid HCL:
+#
+#   apple_private_key = <<EOF
+#   -----BEGIN PRIVATE KEY-----
+#   ...key body as downloaded...
+#   -----END PRIVATE KEY-----
+#   EOF
+apple_client_id   = "REPLACE_WITH_APPLE_SERVICES_ID"
+apple_team_id     = "REPLACE_WITH_APPLE_TEAM_ID"
+apple_key_id      = "REPLACE_WITH_APPLE_KEY_ID"
+apple_private_key = "REPLACE_WITH_APPLE_P8_CONTENTS"
 
 # Database identity.
 db_username = "vocabula"
