@@ -26,12 +26,14 @@ resource "aws_db_instance" "vocabula" {
   publicly_accessible    = var.allow_db_access_from != ""
 
   # Keep the instance running around the clock; the application is always-on.
-  # Quiet backup window so patching/backup I/O never lands in (European)
-  # prime time, and the destroy flags are the safe ones: a final snapshot is
-  # always taken and a week of automated backups survives a destroy. 03:00
-  # UTC = 04:00 Paris (CET), 03:00 Paris in summer.
+  # Quiet backup window so backup I/O never lands in (European) prime time,
+  # and the maintenance window is pinned just after it (RDS rejects windows
+  # that overlap; AWS had auto-assigned one inside this backup slot). Sunday
+  # 04:30 UTC = 05:30 Paris in winter, 06:30 in summer; single-AZ patching
+  # can reboot the instance there, so it belongs at the deadest hour.
   backup_retention_period   = 7
   backup_window             = "03:00-04:00"
+  maintenance_window        = "sun:04:30-sun:05:30"
   delete_automated_backups  = false
   skip_final_snapshot       = false
   final_snapshot_identifier = "vocabula-final"
