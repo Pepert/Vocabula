@@ -254,11 +254,16 @@ Apple is configured differently from Google and LinkedIn
 - **Rotate a secret**: update `terraform/prod.tfvars`, then
   `terraform apply -var-file=prod.tfvars` and force a new deployment.
 - **Logs**: CloudWatch log group `/ecs/vocabula-api`.
+- **Alerts**: CloudWatch alarms (API 5xx, no running task, database storage)
+  and an AWS budget guard email `alert_email` from `prod.tfvars` via the
+  `vocabula-alerts` SNS topic (`terraform/alarms.tf`). Confirm the AWS
+  subscription email once after the first apply that creates it.
 - **Destroy everything**:
   `cd terraform && terraform destroy -var-file=prod.tfvars`.
-  ⚠️ `aws_db_instance` is configured with `skip_final_snapshot = true`, so
-  destroying deletes the database and its data without a final snapshot.
-  Change that before the database holds anything you care about.
+  ⚠️ The database and the Cognito user pool carry `prevent_destroy` and
+  must be removed from the config (or unprotected explicitly) before a
+  destroy can proceed. A destroy of the database still takes a final
+  snapshot (`vocabula-final`) and preserves a week of automated backups.
 
 ## Open questions
 
