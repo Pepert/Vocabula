@@ -8,6 +8,13 @@
 resource "aws_cognito_user_pool" "vocabula" {
   name = "vocabula"
 
+  # Every federated identity (Google/LinkedIn/Apple/email) links to this
+  # pool's user records; destroying it would cut every account off from its
+  # data. Same deliberate-removal policy as the database.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   # Email as username; email is verified automatically on sign-up.
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]

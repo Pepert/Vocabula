@@ -46,3 +46,7 @@ image_tag = "latest"
 # (DBeaver, psql, EF Core migrations). Empty = database unreachable from
 # outside the VPC. Find your IP: curl https://checkip.amazonaws.com
 allow_db_access_from = ""
+
+# Where CloudWatch and budget alerts are emailed. Must be confirmed once
+# (AWS sends a subscription email on first apply).
+alert_email = "REPLACE_WITH_YOUR_EMAIL"
