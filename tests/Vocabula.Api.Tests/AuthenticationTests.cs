@@ -55,7 +55,8 @@ public sealed class AuthenticationTests
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Authentication:Cognito:Authority"] = "https://cognito-idp.test.amazonaws.com/test",
-                    ["Authentication:Cognito:AppClientId"] = "test-client-id"
+                    ["Authentication:Cognito:AppClientId"] = "test-client-id",
+                    ["Authentication:Cognito:UserPoolId"] = "eu-west-3_testpool"
                 });
             });
             

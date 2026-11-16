@@ -1,8 +1,10 @@
+using Amazon.CognitoIdentityProvider;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Vocabula.Api.Authorization;
+using Vocabula.Api.Users;
 using Vocabula.Core.AI;
 using Vocabula.Infrastructure.Persistence;
 
@@ -122,6 +124,25 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentAppUser, CurrentAppUser>();
+
+// Account deletion: removes the user's identity from Cognito. The client
+// is constructed lazily (only on the first deletion) so environments
+// without AWS credentials - local runs, integration tests - never touch it.
+var cognitoUserPoolId = builder.Configuration["Authentication:Cognito:UserPoolId"];
+if (string.IsNullOrWhiteSpace(cognitoUserPoolId))
+{
+    throw new InvalidOperationException(
+        "Cognito authentication configuration is missing. " +
+        "Please set Authentication:Cognito:UserPoolId.");
+}
+builder.Services.AddSingleton<ICognitoUserDeleter>(_ =>
+{
+    // The region is the prefix of the pool id, e.g. "eu-west-3_eu-west-3_...".
+    var region = Amazon.RegionEndpoint.GetBySystemName(cognitoUserPoolId.Split('_')[0]);
+    return new CognitoUserDeleter(
+        new AmazonCognitoIdentityProviderClient(region),
+        cognitoUserPoolId);
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

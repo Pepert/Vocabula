@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Vocabula.Api.Authorization;
+using Vocabula.Api.Users;
 using Vocabula.Core.Domain;
 using Vocabula.Core.Languages;
 using Vocabula.Infrastructure.Persistence;
@@ -17,11 +18,16 @@ public sealed class UsersController : ControllerBase
 
     private readonly ICurrentAppUser _currentAppUser;
     private readonly VocabulaDbContext _dbContext;
+    private readonly ICognitoUserDeleter _cognitoUserDeleter;
 
-    public UsersController(ICurrentAppUser currentAppUser, VocabulaDbContext dbContext)
+    public UsersController(
+        ICurrentAppUser currentAppUser,
+        VocabulaDbContext dbContext,
+        ICognitoUserDeleter cognitoUserDeleter)
     {
         _currentAppUser = currentAppUser;
         _dbContext = dbContext;
+        _cognitoUserDeleter = cognitoUserDeleter;
     }
 
     [HttpGet("me")]
@@ -104,6 +110,47 @@ public sealed class UsersController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new CurrentUserResponse(_currentAppUser.UserId, user.Language, user.LearningLanguage));
+    }
+
+    /// <summary>
+    /// Deletes the authenticated user's account: the Cognito identity first,
+    /// then every database row (profiles, vocabulary, grammar, stories and
+    /// chapters cascade from the user). Deletion is idempotent - the
+    /// identity being already gone is not an error.
+    /// </summary>
+    [HttpDelete("me")]
+    public async Task<IActionResult> DeleteMeAsync(CancellationToken cancellationToken)
+    {
+        var user = await GetUserAsync(cancellationToken);
+        if (user == null)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "User not found",
+                Detail = "The authenticated user has no account record yet.",
+                Status = 404
+            });
+        }
+
+        // Deleting the identity first guarantees that a failure halfway
+        // leaves "cannot sign in, data intact" (retryable), never the
+        // reverse state where data is gone but sign-in still works.
+        try
+        {
+            await _cognitoUserDeleter.DeleteAsync(user.ExternalSubject, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Problem(
+                title: "Account deletion failed",
+                detail: "The identity could not be deleted; no data has been removed. Try again later.",
+                statusCode: 503);
+        }
+
+        _dbContext.AppUsers.Remove(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     private async Task<AppUser?> GetUserAsync(CancellationToken cancellationToken)

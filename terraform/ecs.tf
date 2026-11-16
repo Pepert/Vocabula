@@ -71,6 +71,29 @@ resource "aws_iam_role" "task" {
   })
 }
 
+# In-app account deletion (App Store review / GDPR requirement): the API
+# resolves the Cognito username from the user's sub and deletes the identity
+# there. The runtime task role gets exactly these two permissions and
+# nothing else.
+resource "aws_iam_role_policy" "task_account_deletion" {
+  name = "delete-cognito-users"
+  role = aws_iam_role.task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:ListUsers",
+          "cognito-idp:AdminDeleteUser"
+        ]
+        Resource = aws_cognito_user_pool.vocabula.arn
+      }
+    ]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "vocabula_api" {
   name              = "/ecs/vocabula-api"
   retention_in_days = 14
@@ -114,6 +137,10 @@ resource "aws_ecs_task_definition" "vocabula_api" {
         {
           name  = "AUTHENTICATION__COGNITO__APPCLIENTID"
           value = aws_cognito_user_pool_client.vocabula_app.id
+        },
+        {
+          name  = "AUTHENTICATION__COGNITO__USERPOOLID"
+          value = aws_cognito_user_pool.vocabula.id
         }
       ]
 
