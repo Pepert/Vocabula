@@ -156,6 +156,7 @@ export ConnectionStrings__VocabulaDb=$(aws secretsmanager get-secret-value \
 export MISTRAL_API_KEY=dummy
 export AUTHENTICATION__COGNITO__AUTHORITY=$(cd terraform && terraform output -raw cognito_authority)
 export AUTHENTICATION__COGNITO__APPCLIENTID=$(cd terraform && terraform output -raw cognito_app_client_id)
+export AUTHENTICATION__COGNITO__USERPOOLID=eu-west-3_ef1uEzee6
 
 dotnet ef database update \
   --project src/Vocabula.Infrastructure \

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Vocabula.Core.AI;
 using Vocabula.Core.Models;
+using Vocabula.Api.Users;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Vocabula.Infrastructure.Persistence;
 
@@ -69,6 +70,17 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
         [new NewWordDefinition("sade", "said")],
         [new WordGloss("hej", "hello (word-level gloss)")]);
 
+    /// <summary>
+    /// When true, the fake Cognito deleter throws - used by tests proving
+    /// that a failed identity deletion leaves all data intact.
+    /// </summary>
+    public bool EnsureCognitoDeleterThrows { get; set; }
+
+    /// <summary>Subjects passed to the fake Cognito deleter, in call order.</summary>
+    public IReadOnlyList<string> DeletedSubjects => _cognitoDeleter.DeletedSubjects;
+
+    private readonly FakeCognitoUserDeleter _cognitoDeleter = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -82,6 +94,7 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
             {
                 ["Authentication:Cognito:Authority"] = "https://cognito-idp.test.amazonaws.com/test",
                 ["Authentication:Cognito:AppClientId"] = "test-client-id",
+                ["Authentication:Cognito:UserPoolId"] = "eu-west-3_testpool",
                 ["MISTRAL_API_KEY"] = "test-key",
                 ["ConnectionStrings:VocabulaDb"] = "Host=localhost;Database=test",
                 ["ASPNETCORE_URLS"] = "http://127.0.0.1:0"
@@ -114,6 +127,9 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
                 new FakeExtractor(() => ExtractorKnowledge, () => EnsureExtractorThrows)));
             services.Replace(ServiceDescriptor.Singleton<IStoryGenerator>(
                 new FakeStoryGenerator(() => StoryResult)));
+
+            _cognitoDeleter.ThrowOnDelete = () => EnsureCognitoDeleterThrows;
+            services.Replace(ServiceDescriptor.Singleton<ICognitoUserDeleter>(_cognitoDeleter));
         });
 
         return base.CreateHost(builder);
@@ -150,6 +166,27 @@ public sealed class AuthenticatedWebApplicationFactory : WebApplicationFactory<P
             CancellationToken cancellationToken = default)
         {
             return Task.FromResult(story());
+        }
+    }
+
+    /// <summary>
+    /// Records every subject it is asked to delete, and can be made to
+    /// throw to simulate a failed Cognito call.
+    /// </summary>
+    private sealed class FakeCognitoUserDeleter : ICognitoUserDeleter
+    {
+        public Func<bool> ThrowOnDelete { get; set; } = () => false;
+        public List<string> DeletedSubjects { get; } = [];
+
+        public Task<bool> DeleteAsync(string subject, CancellationToken cancellationToken)
+        {
+            if (ThrowOnDelete())
+            {
+                throw new InvalidOperationException("Simulated Cognito failure.");
+            }
+
+            DeletedSubjects.Add(subject);
+            return Task.FromResult(true);
         }
     }
 
